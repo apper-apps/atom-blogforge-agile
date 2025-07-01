@@ -506,7 +506,7 @@ const MediaBrowser = ({ onSelect }) => {
     )
   }
 
-  return (
+return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
       {media.map((item) => (
         <div
@@ -521,9 +521,10 @@ const MediaBrowser = ({ onSelect }) => {
           />
         </div>
       ))}
-))}
-  </div>
-)
+    </div>
+  )
+}
+
 // Template Selector Component
 const TemplateSelector = ({ onClose, onApplyTemplate }) => {
   const [templates, setTemplates] = useState([])
@@ -755,3 +756,5 @@ const TemplateSelector = ({ onClose, onApplyTemplate }) => {
     </div>
   )
 }
+
+export default PostEditor
