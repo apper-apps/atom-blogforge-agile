@@ -13,8 +13,8 @@ import MediaLibrary from '@/components/pages/MediaLibrary'
 import PublicBlog from '@/components/pages/PublicBlog'
 import BlogPost from '@/components/pages/BlogPost'
 import AuthorProfile from '@/components/pages/AuthorProfile'
+import Calendar from '@/components/pages/Calendar'
 import { generateRSSFeed } from '@/services/api/rssService'
-
 // RSS Feed Handler Component
 const RSSFeedHandler = () => {
   useEffect(() => {
@@ -82,13 +82,13 @@ return (
           <Route index element={<Dashboard />} />
           <Route path="posts" element={<PostList />} />
           <Route path="posts/new" element={<PostEditor />} />
-          <Route path="posts/edit/:id" element={<PostEditor />} />
+<Route path="posts/edit/:id" element={<PostEditor />} />
           <Route path="templates" element={<Templates />} />
           <Route path="media" element={<MediaLibrary />} />
+          <Route path="calendar" element={<Calendar />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
         </Route>
-        
         {/* Public Blog Routes */}
         <Route path="/" element={<PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}>
           <Route index element={<PublicBlog />} />
