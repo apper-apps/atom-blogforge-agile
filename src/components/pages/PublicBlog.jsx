@@ -13,24 +13,25 @@ import Error from '@/components/ui/Error'
 import Empty from '@/components/ui/Empty'
 import SearchBar from '@/components/molecules/SearchBar'
 import Badge from '@/components/atoms/Badge'
-import { getPublishedPosts } from '@/services/api/postsService'
+import { getPublishedPosts, getPostsByCategory } from '@/services/api/postsService'
 
 const PublicBlog = () => {
   const [posts, setPosts] = useState([])
   const [filteredPosts, setFilteredPosts] = useState([])
   const [featuredPosts, setFeaturedPosts] = useState([])
+  const [categoryPosts, setCategoryPosts] = useState({})
   const [loading, setLoading] = useState(true)
+  const [categoryLoading, setCategoryLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-
-  useEffect(() => {
+useEffect(() => {
     loadPosts()
+    loadCategoryPosts()
   }, [])
 
   useEffect(() => {
     filterPosts()
   }, [posts, searchQuery])
-
 const loadPosts = async () => {
     try {
       setLoading(true)
@@ -50,8 +51,28 @@ const loadPosts = async () => {
     } finally {
       setLoading(false)
     }
-  }
+}
 
+  const loadCategoryPosts = async () => {
+    try {
+      setCategoryLoading(true)
+      const categories = ['Technology', 'Lifestyle', 'Business', 'Finance', 'Health']
+      const categoryData = {}
+      
+      for (const category of categories) {
+        const posts = await getPostsByCategory(category, 5)
+        if (posts.length > 0) {
+          categoryData[category] = posts
+        }
+      }
+      
+      setCategoryPosts(categoryData)
+    } catch (err) {
+      console.warn('Failed to load category posts:', err)
+    } finally {
+      setCategoryLoading(false)
+    }
+  }
 const filterPosts = () => {
     // Filter out featured posts from the main grid
     const featuredIds = featuredPosts.map(post => post.Id)
@@ -169,9 +190,147 @@ const filterPosts = () => {
           )}
         </section>
       )}
+{/* Category Boxes */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            Explore by Category
+          </h2>
+          <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+            Discover our latest articles organized by topics that matter most to you
+          </p>
+        </div>
+
+        {categoryLoading ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            {[...Array(5)].map((_, index) => (
+              <div key={index} className="card p-6">
+                <div className="animate-pulse">
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                  <div className="h-40 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+                  <div className="space-y-3">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="flex space-x-3">
+                        <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+            {Object.entries(categoryPosts).map(([category, posts]) => {
+              const featuredPost = posts[0]
+              const latestPosts = posts.slice(1, 5)
+              
+              return (
+                <motion.div
+                  key={category}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                  className="card overflow-hidden group hover:shadow-2xl transition-all duration-300"
+                >
+                  {/* Category Header */}
+                  <div className="p-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                      {category}
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {posts.length} article{posts.length !== 1 ? 's' : ''} available
+                    </p>
+                  </div>
+
+                  {/* Featured Post */}
+                  {featuredPost && (
+                    <div className="p-6 pb-4">
+                      <Link to={`/post/${featuredPost.slug}`} className="block group/featured">
+                        <div className="relative h-32 mb-4 overflow-hidden rounded-lg">
+                          <img
+                            src={featuredPost.featuredImage || `https://images.unsplash.com/photo-${1500000000000 + featuredPost.Id * 1000000}-${featuredPost.Id * 1234567}?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`}
+                            alt={featuredPost.title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover/featured:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover/featured:text-primary-600 dark:group-hover/featured:text-primary-400 transition-colors line-clamp-2">
+                          {featuredPost.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
+                          {featuredPost.excerpt}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center space-x-2">
+                            <img
+                              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(featuredPost.author?.name || 'Author')}&background=2563eb&color=fff&size=20`}
+                              alt={featuredPost.author?.name}
+                              className="w-5 h-5 rounded-full"
+                            />
+                            <span>{featuredPost.author?.name}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <ApperIcon name="Eye" size={12} />
+                            <span>{featuredPost.views.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  )}
+
+                  {/* Latest Posts */}
+                  {latestPosts.length > 0 && (
+                    <div className="px-6 pb-6">
+                      <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                        <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                          Latest Articles
+                        </h5>
+                        <div className="space-y-3">
+                          {latestPosts.map((post) => (
+                            <Link
+                              key={post.Id}
+                              to={`/post/${post.slug}`}
+                              className="flex items-start space-x-3 group/latest hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg p-2 -m-2 transition-colors"
+                            >
+                              <div className="w-12 h-12 flex-shrink-0 overflow-hidden rounded">
+                                <img
+                                  src={post.featuredImage || `https://images.unsplash.com/photo-${1500000000000 + post.Id * 1000000}-${post.Id * 1234567}?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&q=80`}
+                                  alt={post.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h6 className="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover/latest:text-primary-600 dark:group-hover/latest:text-primary-400 transition-colors line-clamp-2 mb-1">
+                                  {post.title}
+                                </h6>
+                                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                  <span>{format(new Date(post.publishedAt), 'MMM d')}</span>
+                                  <div className="flex items-center space-x-1">
+                                    <ApperIcon name="Eye" size={10} />
+                                    <span>{post.views}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )
+            })}
+          </div>
+        )}
+      </section>
 
       {/* Main Content */}
-{/* Main Content */}
+      {/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* RSS Feed Link */}
         <div className="mb-8 text-center">

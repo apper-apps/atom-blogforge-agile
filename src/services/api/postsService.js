@@ -126,8 +126,18 @@ export const getPublishedPosts = async () => {
   return posts
     .filter(post => post.status === 'published')
     .map(getPostWithAuthor)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 }
+
+export const getPostsByCategory = async (category, limit = 5) => {
+  await delay(300)
+  return posts
+    .filter(post => post.status === 'published' && post.category === category)
+    .map(getPostWithAuthor)
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+    .slice(0, limit)
+}
+
 export const getRecentPosts = async (limit = 5) => {
   await delay(200)
   return posts
