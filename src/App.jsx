@@ -74,36 +74,28 @@ function App() {
     document.documentElement.classList.toggle('dark', newDarkMode)
   }
 
-  return (
+return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Routes>
         {/* Admin Routes */}
-        <Route path="/admin/*" element={
-          <AdminLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-<Routes>
-              <Route index element={<Dashboard />} />
-              <Route path="posts" element={<PostList />} />
-              <Route path="posts/new" element={<PostEditor />} />
-              <Route path="posts/edit/:id" element={<PostEditor />} />
-              <Route path="templates" element={<Templates />} />
-              <Route path="media" element={<MediaLibrary />} />
-              <Route path="analytics" element={<Analytics />} />
-              <Route path="settings" element={<Settings />} />
-            </Routes>
-          </AdminLayout>
-        } />
+        <Route path="/admin" element={<AdminLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}>
+          <Route index element={<Dashboard />} />
+          <Route path="posts" element={<PostList />} />
+          <Route path="posts/new" element={<PostEditor />} />
+          <Route path="posts/edit/:id" element={<PostEditor />} />
+          <Route path="templates" element={<Templates />} />
+          <Route path="media" element={<MediaLibrary />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
         
         {/* Public Blog Routes */}
-        <Route path="/*" element={
-          <PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-<Routes>
-              <Route index element={<PublicBlog />} />
-              <Route path="post/:slug" element={<BlogPost />} />
-              <Route path="author/:authorId" element={<AuthorProfile />} />
-              <Route path="rss.xml" element={<RSSFeedHandler />} />
-            </Routes>
-          </PublicLayout>
-        } />
+        <Route path="/" element={<PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode} />}>
+          <Route index element={<PublicBlog />} />
+          <Route path="post/:slug" element={<BlogPost />} />
+          <Route path="author/:authorId" element={<AuthorProfile />} />
+          <Route path="rss.xml" element={<RSSFeedHandler />} />
+        </Route>
       </Routes>
       
       <ToastContainer
