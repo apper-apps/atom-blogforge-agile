@@ -156,8 +156,18 @@ export const getPostBySlug = async (slug) => {
   
   // Generate semantic links if post is published
   if (post.status === 'published') {
-    const relatedPosts = await getRelatedPosts(post.Id, 3)
+    const relatedPosts = await getRelatedPosts(post.Id, 5)
+    
+    // Import semantic linking service dynamically to avoid circular dependency
+    const { generateSemanticLinks } = await import('@/services/api/semanticLinkingService')
     postWithAuthor.contentWithLinks = generateSemanticLinks(post.content, post.Id, relatedPosts)
+    
+    // Add semantic metadata
+    postWithAuthor.semanticStats = {
+      linksGenerated: (postWithAuthor.contentWithLinks.match(/data-semantic-link="true"/g) || []).length,
+      relatedPostsAnalyzed: relatedPosts.length,
+      averageSimilarity: relatedPosts.reduce((sum, p) => sum + (p.similarityScore || 0), 0) / Math.max(relatedPosts.length, 1)
+    }
   }
   
   return postWithAuthor

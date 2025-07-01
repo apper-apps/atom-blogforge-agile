@@ -112,9 +112,21 @@ const BlogPost = () => {
 className="prose prose-lg max-w-none dark:prose-invert prose-headings:font-display prose-headings:font-bold prose-a:text-primary-600 dark:prose-a:text-primary-400 prose-blockquote:border-l-primary-500 prose-blockquote:bg-primary-50 dark:prose-blockquote:bg-primary-900/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg"
         >
           <div 
-            className="whitespace-pre-wrap leading-relaxed"
+            className="whitespace-pre-wrap leading-relaxed semantic-content"
             dangerouslySetInnerHTML={{ __html: post.contentWithLinks || post.content }}
           />
+          
+          {/* Semantic linking indicator */}
+          {post.semanticStats && post.semanticStats.linksGenerated > 0 && (
+            <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center space-x-2 text-sm text-blue-700 dark:text-blue-300">
+                <ApperIcon name="Link" size={16} />
+                <span>
+                  This article contains {post.semanticStats.linksGenerated} automatically generated links to related content based on semantic analysis.
+                </span>
+              </div>
+            </div>
+          )}
         </motion.div>
         {/* Keywords */}
         {post.keywords && post.keywords.length > 0 && (

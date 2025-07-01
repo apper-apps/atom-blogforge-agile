@@ -4,9 +4,15 @@ import natural from 'natural'
 // Configuration for semantic linking
 const CONFIG = {
   maxLinksPerPost: 5,
-  similarityThreshold: 0.3,
+  similarityThreshold: 0.25,
   maxAnchorLength: 50,
-  minWordLength: 4
+  minWordLength: 4,
+  contextWindowSize: 20,
+  similarityWeights: {
+    keyword: 0.4,
+    term: 0.35,
+    cosine: 0.25
+  }
 }
 
 // TF-IDF instance for text analysis
@@ -43,16 +49,31 @@ const extractTerms = (text) => {
     'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further',
     'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both',
     'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only',
-    'own', 'same', 'so', 'than', 'too', 'very', 'just', 'now'
+    'own', 'same', 'so', 'than', 'too', 'very', 'just', 'now', 'about', 'also', 'they',
+    'them', 'their', 'what', 'who', 'which', 'you', 'your', 'we', 'our', 'us', 'me', 'my',
+    'i', 'he', 'his', 'him', 'she', 'her', 'it', 'its'
   ])
   
-  return preprocessText(text)
+  const terms = preprocessText(text)
     .split(/\s+/)
     .filter(word => 
       word.length >= CONFIG.minWordLength && 
       !stopWords.has(word) &&
       /^[a-z]+$/.test(word)
     )
+  
+  // Extract important phrases (2-3 word combinations)
+  const phrases = []
+  for (let i = 0; i < terms.length - 1; i++) {
+    if (terms[i].length >= CONFIG.minWordLength && terms[i + 1].length >= CONFIG.minWordLength) {
+      phrases.push(`${terms[i]} ${terms[i + 1]}`)
+    }
+    if (i < terms.length - 2 && terms[i + 2].length >= CONFIG.minWordLength) {
+      phrases.push(`${terms[i]} ${terms[i + 1]} ${terms[i + 2]}`)
+    }
+  }
+  
+  return [...terms, ...phrases]
 }
 
 // Calculate semantic similarity between two posts
@@ -97,51 +118,86 @@ export const calculatePostSimilarity = (post1, post2) => {
   const magnitude1 = Math.sqrt(Object.values(vector1).reduce((sum, val) => sum + val * val, 0))
   const magnitude2 = Math.sqrt(Object.values(vector2).reduce((sum, val) => sum + val * val, 0))
   
-  const cosineSimilarity = magnitude1 && magnitude2 ? dotProduct / (magnitude1 * magnitude2) : 0
+const cosineSimilarity = magnitude1 && magnitude2 ? dotProduct / (magnitude1 * magnitude2) : 0
+  
+  // Category similarity bonus
+  const categoryBonus = post1.category === post2.category ? 0.1 : 0
   
   // Weighted combination of different similarity measures
-  return (keywordSimilarity * 0.5) + (termSimilarity * 0.3) + (cosineSimilarity * 0.2)
+  const weights = CONFIG.similarityWeights
+  return (keywordSimilarity * weights.keyword) + 
+         (termSimilarity * weights.term) + 
+         (cosineSimilarity * weights.cosine) + 
+         categoryBonus
 }
 
 // Find anchor text opportunities in content
 const findAnchorOpportunities = (content, targetPost) => {
   const opportunities = []
+  const contentLower = content.toLowerCase()
+  
+  // Look for title phrases (prefer longer phrases)
+  const titlePhrase = targetPost.title.toLowerCase()
+  if (contentLower.includes(titlePhrase)) {
+    const regex = new RegExp(`\\b${titlePhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+    let match
+    while ((match = regex.exec(content)) !== null) {
+      opportunities.push({
+        term: targetPost.title,
+        position: match.index,
+        type: 'title-phrase',
+        score: 1.0,
+        length: titlePhrase.length
+      })
+    }
+  }
   
   // Look for title words
   const titleWords = targetPost.title.toLowerCase().split(/\s+/)
     .filter(word => word.length >= CONFIG.minWordLength)
   
   titleWords.forEach(word => {
-    const regex = new RegExp(`\\b${word}\\b`, 'gi')
+    const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
     let match
     while ((match = regex.exec(content)) !== null) {
-      opportunities.push({
-        term: word,
-        position: match.index,
-        type: 'title',
-        score: 0.8
-      })
+      // Skip if already covered by title phrase
+      const isPartOfPhrase = opportunities.some(opp => 
+        opp.type === 'title-phrase' && 
+        match.index >= opp.position && 
+        match.index <= opp.position + opp.length
+      )
+      if (!isPartOfPhrase) {
+        opportunities.push({
+          term: word,
+          position: match.index,
+          type: 'title-word',
+          score: 0.7,
+          length: word.length
+        })
+      }
     }
   })
   
-  // Look for keywords
+  // Look for keywords (exact matches)
   targetPost.keywords.forEach(keyword => {
-    const regex = new RegExp(`\\b${keyword.toLowerCase()}\\b`, 'gi')
+    const keywordLower = keyword.toLowerCase()
+    const regex = new RegExp(`\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
     let match
     while ((match = regex.exec(content)) !== null) {
       opportunities.push({
         term: keyword,
         position: match.index,
         type: 'keyword',
-        score: 0.9
+        score: 0.9,
+        length: keyword.length
       })
     }
   })
   
-  // Sort by score and position
+  // Sort by score, then by length (prefer longer matches), then by position
   return opportunities
-    .sort((a, b) => b.score - a.score || a.position - b.position)
-    .slice(0, 2) // Limit opportunities per post
+    .sort((a, b) => b.score - a.score || b.length - a.length || a.position - b.position)
+    .slice(0, 3) // Limit opportunities per post
 }
 
 // Generate semantic links within content
@@ -150,6 +206,7 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
   
   let linkedContent = content
   let linkCount = 0
+  const usedPositions = []
   const usedTerms = new Set()
   
   // Sort related posts by similarity score (if available)
@@ -164,12 +221,22 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
       if (linkCount >= CONFIG.maxLinksPerPost) return
       if (usedTerms.has(opportunity.term.toLowerCase())) return
       
-      const regex = new RegExp(`\\b${opportunity.term}\\b`, 'i')
+      // Check for position conflicts with existing links
+      const conflictsWithExisting = usedPositions.some(pos => 
+        Math.abs(pos - opportunity.position) < CONFIG.contextWindowSize
+      )
+      if (conflictsWithExisting) return
       
-      // Check if this term is not already linked
-      if (!linkedContent.includes(`>${opportunity.term}<`) && regex.test(linkedContent)) {
-        const replacement = `<a href="/post/${relatedPost.slug}" class="semantic-link text-primary-600 dark:text-primary-400 hover:underline transition-colors" title="Read: ${relatedPost.title}">${opportunity.term}</a>`
+      const escapedTerm = opportunity.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const regex = new RegExp(`\\b${escapedTerm}\\b`, 'i')
+      
+      // Check if this term is not already linked and doesn't contain HTML
+      const termMatch = linkedContent.match(regex)
+      if (termMatch && !linkedContent.substring(termMatch.index - 10, termMatch.index + opportunity.term.length + 10).includes('<a ')) {
+        const replacement = `<a href="/post/${relatedPost.slug}" class="semantic-link inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline decoration-1 underline-offset-2 transition-colors duration-200" title="Related article: ${relatedPost.title}" data-semantic-link="true">${opportunity.term}</a>`
+        
         linkedContent = linkedContent.replace(regex, replacement)
+        usedPositions.push(opportunity.position)
         usedTerms.add(opportunity.term.toLowerCase())
         linkCount++
       }
