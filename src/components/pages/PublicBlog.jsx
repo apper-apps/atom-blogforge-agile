@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { format } from 'date-fns'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Navigation, Pagination, Autoplay } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/navigation'
+import 'swiper/css/pagination'
 import ApperIcon from '@/components/ApperIcon'
 import Loading from '@/components/ui/Loading'
 import Error from '@/components/ui/Error'
@@ -13,7 +18,7 @@ import { getPublishedPosts } from '@/services/api/postsService'
 const PublicBlog = () => {
   const [posts, setPosts] = useState([])
   const [filteredPosts, setFilteredPosts] = useState([])
-  const [featuredPost, setFeaturedPost] = useState(null)
+  const [featuredPosts, setFeaturedPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
@@ -26,13 +31,20 @@ const PublicBlog = () => {
     filterPosts()
   }, [posts, searchQuery])
 
-  const loadPosts = async () => {
+const loadPosts = async () => {
     try {
       setLoading(true)
       setError('')
       const data = await getPublishedPosts()
       setPosts(data)
-      setFeaturedPost(data.find(post => post.featured) || data[0])
+      
+      // Get featured posts for slider (fallback to first 3 posts if none are featured)
+      const featured = data.filter(post => post.featured)
+      if (featured.length === 0) {
+        setFeaturedPosts(data.slice(0, 3))
+      } else {
+        setFeaturedPosts(featured)
+      }
     } catch (err) {
       setError('Failed to load posts')
     } finally {
@@ -40,8 +52,10 @@ const PublicBlog = () => {
     }
   }
 
-  const filterPosts = () => {
-    let filtered = posts.filter(post => post.Id !== featuredPost?.Id)
+const filterPosts = () => {
+    // Filter out featured posts from the main grid
+    const featuredIds = featuredPosts.map(post => post.Id)
+    let filtered = posts.filter(post => !featuredIds.includes(post.Id))
 
     if (searchQuery) {
       filtered = filtered.filter(post =>
@@ -61,56 +75,98 @@ const PublicBlog = () => {
   if (error) return <Error message={error} onRetry={loadPosts} />
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      {featuredPost && (
+<div className="min-h-screen">
+      {/* Hero Section with Slider */}
+      {featuredPosts.length > 0 && (
         <section className="relative h-96 lg:h-[32rem] overflow-hidden">
-          <div className="absolute inset-0">
-            <img
-              src={featuredPost.featuredImage || 'https://images.unsplash.com/photo-1432821596592-e2c18b78144f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80'}
-              alt={featuredPost.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/20" />
-          </div>
+          <Swiper
+            modules={[Navigation, Pagination, Autoplay]}
+            spaceBetween={0}
+            slidesPerView={1}
+            navigation={{
+              nextEl: '.swiper-button-next-custom',
+              prevEl: '.swiper-button-prev-custom',
+            }}
+            pagination={{
+              el: '.swiper-pagination-custom',
+              clickable: true,
+            }}
+            autoplay={{
+              delay: 5000,
+              disableOnInteraction: false,
+            }}
+            loop={featuredPosts.length > 1}
+            className="w-full h-full"
+          >
+            {featuredPosts.map((post, index) => (
+              <SwiperSlide key={post.Id}>
+                <div className="relative w-full h-full">
+                  <div className="absolute inset-0">
+                    <img
+                      src={post.featuredImage || `https://images.unsplash.com/photo-${1500000000000 + post.Id * 1000000}-${post.Id * 1234567}?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80`}
+                      alt={post.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/20" />
+                  </div>
+                  
+                  <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="max-w-3xl"
+                    >
+                      <Badge variant="primary" className="mb-4">
+                        {post.category || 'Featured Post'}
+                      </Badge>
+                      <h1 className="text-4xl lg:text-6xl font-bold text-white mb-4">
+                        {post.title}
+                      </h1>
+                      <p className="text-xl text-gray-200 mb-6 line-clamp-3">
+                        {post.excerpt}
+                      </p>
+                      <div className="flex items-center space-x-6 text-gray-200 mb-8">
+                        <div className="flex items-center space-x-2">
+                          <img
+                            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(post.author?.name || 'Author')}&background=2563eb&color=fff&size=32`}
+                            alt={post.author?.name}
+                            className="w-8 h-8 rounded-full"
+                          />
+                          <span className="font-medium">{post.author?.name}</span>
+                        </div>
+                        <span>{format(new Date(post.publishedAt), 'MMMM d, yyyy')}</span>
+                        <div className="flex items-center space-x-1">
+                          <ApperIcon name="Eye" size={16} />
+                          <span>{post.views.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <Link
+                        to={`/post/${post.slug}`}
+                        className="inline-flex items-center px-6 py-3 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        Read More
+                        <ApperIcon name="ArrowRight" size={16} className="ml-2" />
+                      </Link>
+                    </motion.div>
+                  </div>
+                </div>
+              </SwiperSlide>
+            ))}
+          </Swiper>
           
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex items-center">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="max-w-3xl"
-            >
-              <Badge variant="primary" className="mb-4">Featured Post</Badge>
-              <h1 className="text-4xl lg:text-6xl font-bold text-white mb-4">
-                {featuredPost.title}
-              </h1>
-              <p className="text-xl text-gray-200 mb-6 line-clamp-3">
-                {featuredPost.excerpt}
-              </p>
-              <div className="flex items-center space-x-6 text-gray-200">
-                <div className="flex items-center space-x-2">
-                  <img
-                    src={`https://ui-avatars.com/api/?name=${encodeURIComponent(featuredPost.author?.name || 'Author')}&background=2563eb&color=fff&size=32`}
-                    alt={featuredPost.author?.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <span className="font-medium">{featuredPost.author?.name}</span>
-                </div>
-                <span>{format(new Date(featuredPost.publishedAt), 'MMMM d, yyyy')}</span>
-                <div className="flex items-center space-x-1">
-                  <ApperIcon name="Eye" size={16} />
-                  <span>{featuredPost.views.toLocaleString()}</span>
-                </div>
-              </div>
-              <Link
-                to={`/post/${featuredPost.slug}`}
-                className="inline-flex items-center mt-8 px-6 py-3 bg-white text-gray-900 font-medium rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                Read More
-                <ApperIcon name="ArrowRight" size={16} className="ml-2" />
-              </Link>
-            </motion.div>
-          </div>
+          {/* Navigation Controls */}
+          {featuredPosts.length > 1 && (
+            <>
+              <button className="swiper-button-prev-custom absolute left-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+                <ApperIcon name="ChevronLeft" size={24} />
+              </button>
+              <button className="swiper-button-next-custom absolute right-4 top-1/2 -translate-y-1/2 z-10 w-12 h-12 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-white/30 transition-colors">
+                <ApperIcon name="ChevronRight" size={24} />
+              </button>
+              <div className="swiper-pagination-custom absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex space-x-2"></div>
+            </>
+          )}
         </section>
       )}
 
