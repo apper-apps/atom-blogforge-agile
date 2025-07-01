@@ -1,14 +1,115 @@
 import { posts } from '@/services/mockData/posts'
 import { authors } from '@/services/mockData/authors'
 import { updateSitemap } from '@/services/api/sitemapService'
+import natural from 'natural'
 
 // Helper function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-// Helper function to get post with author
+// Semantic linking configuration
+const LINKING_CONFIG = {
+  maxLinksPerPost: 5,
+  similarityThreshold: 0.3,
+  maxAnchorLength: 50
+}
+
+// TF-IDF and similarity calculations
+const tfidf = new natural.TfIdf()
+
+// Helper function to get post with author and semantic links
 const getPostWithAuthor = (post) => {
   const author = authors.find(a => a.Id === post.authorId)
   return { ...post, author }
+}
+
+// Extract meaningful terms from content
+const extractTerms = (content) => {
+  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'])
+  
+  return content
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .split(/\s+/)
+    .filter(word => word.length > 3 && !stopWords.has(word))
+}
+
+// Calculate semantic similarity between posts
+const calculateSimilarity = (post1, post2) => {
+  // Initialize TF-IDF if needed
+  if (tfidf.documents.length === 0) {
+    posts.forEach(p => {
+      const text = `${p.title} ${p.content} ${p.keywords.join(' ')}`
+      tfidf.addDocument(extractTerms(text))
+    })
+  }
+
+  const text1 = `${post1.title} ${post1.content} ${post1.keywords.join(' ')}`
+  const text2 = `${post2.title} ${post2.content} ${post2.keywords.join(' ')}`
+  
+  const terms1 = extractTerms(text1)
+  const terms2 = extractTerms(text2)
+  
+  // Calculate Jaccard similarity for keywords
+  const keywords1 = new Set(post1.keywords)
+  const keywords2 = new Set(post2.keywords)
+  const intersection = new Set([...keywords1].filter(k => keywords2.has(k)))
+  const union = new Set([...keywords1, ...keywords2])
+  const keywordSimilarity = intersection.size / Math.max(union.size, 1)
+  
+  // Calculate term overlap
+  const terms1Set = new Set(terms1)
+  const terms2Set = new Set(terms2)
+  const termIntersection = new Set([...terms1Set].filter(t => terms2Set.has(t)))
+  const termUnion = new Set([...terms1Set, ...terms2Set])
+  const termSimilarity = termIntersection.size / Math.max(termUnion.size, 1)
+  
+  // Weighted combination
+  return (keywordSimilarity * 0.6) + (termSimilarity * 0.4)
+}
+
+// Generate semantic links within content
+const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
+  let linkedContent = content
+  let linkCount = 0
+  
+  relatedPosts.forEach(relatedPost => {
+    if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
+    
+    // Find good anchor text opportunities
+    const titleWords = relatedPost.title.toLowerCase().split(/\s+/)
+    const keywords = relatedPost.keywords.map(k => k.toLowerCase())
+    
+    // Look for title mentions
+    titleWords.forEach(word => {
+      if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
+      if (word.length < 4) return
+      
+      const regex = new RegExp(`\\b${word}\\b`, 'gi')
+      const matches = linkedContent.match(regex)
+      
+      if (matches && matches.length > 0) {
+        const link = `<a href="/post/${relatedPost.slug}" class="semantic-link text-primary-600 dark:text-primary-400 hover:underline">${word}</a>`
+        linkedContent = linkedContent.replace(regex, link)
+        linkCount++
+      }
+    })
+    
+    // Look for keyword mentions
+    keywords.forEach(keyword => {
+      if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
+      
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi')
+      const matches = linkedContent.match(regex)
+      
+      if (matches && matches.length > 0 && !linkedContent.includes(`>${keyword}<`)) {
+        const link = `<a href="/post/${relatedPost.slug}" class="semantic-link text-primary-600 dark:text-primary-400 hover:underline">${keyword}</a>`
+        linkedContent = linkedContent.replace(regex, link)
+        linkCount++
+      }
+    })
+  })
+  
+  return linkedContent
 }
 
 export const getAllPosts = async () => {
@@ -50,7 +151,16 @@ export const getPostBySlug = async (slug) => {
   await delay(300)
   const post = posts.find(p => p.slug === slug)
   if (!post) throw new Error('Post not found')
-  return getPostWithAuthor(post)
+  
+  const postWithAuthor = getPostWithAuthor(post)
+  
+  // Generate semantic links if post is published
+  if (post.status === 'published') {
+    const relatedPosts = await getRelatedPosts(post.Id, 3)
+    postWithAuthor.contentWithLinks = generateSemanticLinks(post.content, post.Id, relatedPosts)
+  }
+  
+  return postWithAuthor
 }
 
 export const getPostsByAuthor = async (authorId) => {
@@ -66,15 +176,23 @@ export const getRelatedPosts = async (postId, limit = 3) => {
   const currentPost = posts.find(p => p.Id === postId)
   if (!currentPost) return []
   
-  return posts
-    .filter(post => 
-      post.Id !== postId && 
-      post.status === 'published' &&
-      post.keywords.some(keyword => currentPost.keywords.includes(keyword))
-    )
-    .map(getPostWithAuthor)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  // Get all published posts except current
+  const candidates = posts.filter(post => 
+    post.Id !== postId && post.status === 'published'
+  )
+  
+  // Calculate semantic similarity scores
+  const scoredPosts = candidates.map(post => ({
+    ...post,
+    similarityScore: calculateSimilarity(currentPost, post)
+  }))
+  
+  // Sort by similarity score and filter by threshold
+  return scoredPosts
+    .filter(post => post.similarityScore >= LINKING_CONFIG.similarityThreshold)
+    .sort((a, b) => b.similarityScore - a.similarityScore)
     .slice(0, limit)
+    .map(post => getPostWithAuthor(post))
 }
 
 export const createPost = async (postData) => {

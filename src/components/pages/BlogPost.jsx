@@ -109,13 +109,13 @@ const BlogPost = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="prose prose-lg max-w-none dark:prose-invert prose-headings:font-display prose-headings:font-bold prose-a:text-primary-600 dark:prose-a:text-primary-400 prose-blockquote:border-l-primary-500 prose-blockquote:bg-primary-50 dark:prose-blockquote:bg-primary-900/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg"
+className="prose prose-lg max-w-none dark:prose-invert prose-headings:font-display prose-headings:font-bold prose-a:text-primary-600 dark:prose-a:text-primary-400 prose-blockquote:border-l-primary-500 prose-blockquote:bg-primary-50 dark:prose-blockquote:bg-primary-900/20 prose-blockquote:py-1 prose-blockquote:px-4 prose-blockquote:rounded-r-lg"
         >
-          <div className="whitespace-pre-wrap leading-relaxed">
-            {post.content}
-          </div>
+          <div 
+            className="whitespace-pre-wrap leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: post.contentWithLinks || post.content }}
+          />
         </motion.div>
-
         {/* Keywords */}
         {post.keywords && post.keywords.length > 0 && (
           <motion.div
