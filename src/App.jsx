@@ -6,6 +6,7 @@ import PublicLayout from '@/components/organisms/PublicLayout'
 import Dashboard from '@/components/pages/Dashboard'
 import PostList from '@/components/pages/PostList'
 import PostEditor from '@/components/pages/PostEditor'
+import Templates from '@/components/pages/Templates'
 import Analytics from '@/components/pages/Analytics'
 import Settings from '@/components/pages/Settings'
 import MediaLibrary from '@/components/pages/MediaLibrary'
@@ -40,6 +41,7 @@ function App() {
               <Route path="posts" element={<PostList />} />
               <Route path="posts/new" element={<PostEditor />} />
               <Route path="posts/edit/:id" element={<PostEditor />} />
+              <Route path="templates" element={<Templates />} />
               <Route path="media" element={<MediaLibrary />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="settings" element={<Settings />} />

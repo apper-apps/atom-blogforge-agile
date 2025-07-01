@@ -30,8 +30,9 @@ const [post, setPost] = useState({
 const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
-  const [keywordInput, setKeywordInput] = useState('')
+const [keywordInput, setKeywordInput] = useState('')
   const [showMediaBrowser, setShowMediaBrowser] = useState(false)
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false)
 
   useEffect(() => {
     if (isEdit) {
@@ -156,7 +157,15 @@ setSaving(true)
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+<div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setShowTemplateSelector(true)}
+            icon="Layout"
+          >
+            Templates
+          </Button>
+          
           <Button
             variant="outline"
             onClick={() => setPreview(!preview)}
@@ -183,7 +192,6 @@ setSaving(true)
           </Button>
         </div>
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
@@ -438,6 +446,25 @@ setSaving(true)
             </div>
           </div>
         </div>
+)}
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <TemplateSelector
+          onClose={() => setShowTemplateSelector(false)}
+          onApplyTemplate={(template) => {
+            setPost(prev => ({
+              ...prev,
+              content: template.content,
+              excerpt: template.excerpt || prev.excerpt,
+              metaTitle: template.metaTitle || prev.metaTitle,
+              metaDescription: template.metaDescription || prev.metaDescription,
+              keywords: template.keywords.length > 0 ? template.keywords : prev.keywords
+            }))
+            setShowTemplateSelector(false)
+            toast.success('Template applied successfully')
+          }}
+        />
       )}
     </div>
   )
@@ -494,8 +521,237 @@ const MediaBrowser = ({ onSelect }) => {
           />
         </div>
       ))}
+))}
+  </div>
+)
+// Template Selector Component
+const TemplateSelector = ({ onClose, onApplyTemplate }) => {
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [previewMode, setPreviewMode] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+
+  const categories = ['all', 'Tutorial', 'Review', 'News', 'Opinion']
+
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  const loadTemplates = async () => {
+    try {
+      // Import the service function dynamically to avoid circular imports
+      const { getAllTemplates, incrementTemplateUsage } = await import('@/services/api/templateService')
+      const data = await getAllTemplates()
+      setTemplates(data)
+    } catch (err) {
+      toast.error('Failed to load templates')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApplyTemplate = async (template) => {
+    try {
+      // Import the service function dynamically
+      const { incrementTemplateUsage } = await import('@/services/api/templateService')
+      await incrementTemplateUsage(template.Id)
+      onApplyTemplate(template)
+    } catch (err) {
+      toast.error('Failed to apply template')
+    }
+  }
+
+  const filteredTemplates = templates.filter(template => {
+    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         template.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === 'all' || template.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+          <div className="p-6">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-48 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {previewMode && selectedTemplate ? `Preview: ${selectedTemplate.name}` : 'Select Content Template'}
+          </h3>
+          <div className="flex items-center gap-2">
+            {previewMode && selectedTemplate && (
+              <Button
+                variant="outline"
+                onClick={() => setPreviewMode(false)}
+                icon="ArrowLeft"
+                size="sm"
+              >
+                Back
+              </Button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <ApperIcon name="X" size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+          {!previewMode ? (
+            <>
+              {/* Filters */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search templates..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    icon="Search"
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {categories.map(category => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedCategory === category
+                          ? 'bg-primary-500 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {category === 'all' ? 'All Categories' : category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Templates Grid */}
+              {filteredTemplates.length === 0 ? (
+                <div className="text-center py-12">
+                  <ApperIcon name="Layout" size={48} className="mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">No templates found matching your criteria</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredTemplates.map(template => (
+                    <div
+                      key={template.Id}
+                      className="card p-4 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                      onClick={() => {
+                        setSelectedTemplate(template)
+                        setPreviewMode(true)
+                      }}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <Badge variant="secondary">{template.category}</Badge>
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <ApperIcon name="BarChart3" size={12} />
+                          <span>{template.usageCount || 0}</span>
+                        </div>
+                      </div>
+
+                      <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                        {template.name}
+                      </h4>
+                      
+                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-3">
+                        {template.description}
+                      </p>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">
+                          {new Date(template.updatedAt).toLocaleDateString()}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedTemplate(template)
+                              setPreviewMode(true)
+                            }}
+                            className="p-1 text-gray-500 hover:text-primary-500 transition-colors"
+                          >
+                            <ApperIcon name="Eye" size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleApplyTemplate(template)
+                            }}
+                            className="p-1 text-gray-500 hover:text-green-500 transition-colors"
+                          >
+                            <ApperIcon name="Download" size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            /* Preview Mode */
+            selectedTemplate && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                      {selectedTemplate.name}
+                    </h4>
+                    <p className="text-gray-600 dark:text-gray-400 mt-1">
+                      {selectedTemplate.description}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleApplyTemplate(selectedTemplate)}
+                    icon="Download"
+                  >
+                    Use This Template
+                  </Button>
+                </div>
+
+                <div className="prose prose-lg max-w-none dark:prose-invert bg-gray-50 dark:bg-gray-900 p-6 rounded-lg">
+                  <div className="whitespace-pre-wrap">
+                    {selectedTemplate.content}
+                  </div>
+                </div>
+
+                {selectedTemplate.keywords.length > 0 && (
+                  <div>
+                    <h5 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Keywords:</h5>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTemplate.keywords.map(keyword => (
+                        <Badge key={keyword} variant="primary">{keyword}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          )}
+        </div>
+      </div>
     </div>
   )
 }
-
-export default PostEditor
