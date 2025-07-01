@@ -1,4 +1,4 @@
-import { posts } from '@/services/mockData/posts'
+import { getAllPosts } from '@/services/api/postsService'
 import nlp from 'compromise'
 
 // Configuration for semantic linking
@@ -20,7 +20,7 @@ let isInitialized = false
 // Initialize NLP analysis cache
 const initializeNlpCache = () => {
   if (isInitialized) return
-  
+const posts = await getAllPosts()
   posts.forEach(post => {
     const text = `${post.title} ${post.content} ${post.keywords.join(' ')}`
     const doc = nlp(preprocessText(text))
@@ -248,13 +248,14 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
 
 // Analyze content for semantic linking opportunities
 export const analyzeContentForLinks = async (content, currentPostId) => {
-  const publishedPosts = posts.filter(post => 
+  const allPosts = await getAllPosts()
+  const publishedPosts = allPosts.filter(post =>
     post.Id !== currentPostId && post.status === 'published'
   )
   
   if (!publishedPosts.length) return { content, suggestions: [] }
   
-  const currentPost = posts.find(p => p.Id === currentPostId)
+const currentPost = allPosts.find(p => p.Id === currentPostId)
   if (!currentPost) return { content, suggestions: [] }
   
   // Calculate similarities using compromise
@@ -285,11 +286,12 @@ export const analyzeContentForLinks = async (content, currentPostId) => {
 }
 
 // Get semantic linking statistics
-export const getLinkingStats = (postId) => {
-  const post = posts.find(p => p.Id === postId)
+export const getLinkingStats = async (postId) => {
+  const allPosts = await getAllPosts()
+  const post = allPosts.find(p => p.Id === postId)
   if (!post) return null
   
-  const publishedPosts = posts.filter(p => 
+const publishedPosts = allPosts.filter(p => 
     p.Id !== postId && p.status === 'published'
   )
   

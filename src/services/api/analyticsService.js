@@ -1,4 +1,4 @@
-import { posts } from '@/services/mockData/posts'
+import { getAllPosts } from '@/services/api/postsService'
 import { analytics } from '@/services/mockData/analytics'
 
 // Helper function to delay execution
@@ -6,7 +6,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 export const getAnalytics = async (timeRange = '30') => {
   await delay(400)
-  
+const posts = await getAllPosts()
   const totalPosts = posts.length
   const totalViews = posts.reduce((sum, post) => sum + post.views, 0)
   const publishedPosts = posts.filter(post => post.status === 'published')
@@ -52,7 +52,8 @@ export const getAnalytics = async (timeRange = '30') => {
 }
 
 export const getPostAnalytics = async () => {
-  await delay(300)
+await delay(300)
+  const posts = await getAllPosts()
   return posts
     .filter(post => post.status === 'published')
     .sort((a, b) => b.views - a.views)
@@ -71,8 +72,9 @@ export const getDeviceStats = async () => {
 
 export const getBlogEngagementMetrics = async () => {
   await delay(350)
-  
-  // Generate engagement metrics for each published post
+// Generate engagement metrics for each published post
+  const posts = await getAllPosts()
+  const publishedPosts = posts.filter(post => post.status === 'published')
   const publishedPosts = posts.filter(post => post.status === 'published')
   
   return publishedPosts.slice(0, 8).map(post => ({

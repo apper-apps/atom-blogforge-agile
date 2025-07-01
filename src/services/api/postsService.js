@@ -1,9 +1,18 @@
-import { posts } from '@/services/mockData/posts'
-import { authors } from '@/services/mockData/authors'
 import { updateSitemap } from '@/services/api/sitemapService'
 import { generateRSSFeed } from '@/services/api/rssService'
+import { toast } from 'react-toastify'
+
 // Helper function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Initialize ApperClient
+const getApperClient = () => {
+  const { ApperClient } = window.ApperSDK
+  return new ApperClient({
+    apperProjectId: import.meta.env.VITE_APPER_PROJECT_ID,
+    apperPublicKey: import.meta.env.VITE_APPER_PUBLIC_KEY
+  })
+}
 
 // Semantic linking configuration
 const LINKING_CONFIG = {
@@ -14,12 +23,6 @@ const LINKING_CONFIG = {
 
 // Similarity calculations cache
 let similarityCache = new Map()
-
-// Helper function to get post with author and semantic links
-const getPostWithAuthor = (post) => {
-  const author = authors.find(a => a.Id === post.authorId)
-  return { ...post, author }
-}
 
 // Simple term extraction for compatibility
 const extractTerms = (content) => {
@@ -39,15 +42,15 @@ const calculateSimilarity = (post1, post2) => {
     return similarityCache.get(cacheKey)
   }
   
-  const text1 = `${post1.title} ${post1.content} ${post1.keywords.join(' ')}`
-  const text2 = `${post2.title} ${post2.content} ${post2.keywords.join(' ')}`
+  const text1 = `${post1.title} ${post1.content} ${post1.keywords?.join(' ') || ''}`
+  const text2 = `${post2.title} ${post2.content} ${post2.keywords?.join(' ') || ''}`
   
   const terms1 = extractTerms(text1)
   const terms2 = extractTerms(text2)
   
   // Calculate Jaccard similarity for keywords
-  const keywords1 = new Set(post1.keywords.map(k => k.toLowerCase()))
-  const keywords2 = new Set(post2.keywords.map(k => k.toLowerCase()))
+  const keywords1 = new Set((post1.keywords || []).map(k => k.toLowerCase()))
+  const keywords2 = new Set((post2.keywords || []).map(k => k.toLowerCase()))
   const intersection = new Set([...keywords1].filter(k => keywords2.has(k)))
   const union = new Set([...keywords1, ...keywords2])
   const keywordSimilarity = intersection.size / Math.max(union.size, 1)
@@ -97,7 +100,7 @@ const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
     })
     
     // Look for keywords
-    relatedPost.keywords.forEach(keyword => {
+    (relatedPost.keywords || []).forEach(keyword => {
       if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
       if (usedTerms.has(keyword.toLowerCase())) return
       
@@ -118,230 +121,714 @@ const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
 
 export const getAllPosts = async () => {
   await delay(300)
-  return posts.map(getPostWithAuthor).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      orderBy: [{ fieldName: "created_at", sorttype: "DESC" }]
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching posts:", error)
+    toast.error("Failed to fetch posts")
+    return []
+  }
 }
 
 export const getPublishedPosts = async () => {
   await delay(300)
-  return posts
-    .filter(post => post.status === 'published')
-    .map(getPostWithAuthor)
-.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [{ FieldName: "status", Operator: "EqualTo", Values: ["published"] }],
+      orderBy: [{ fieldName: "published_at", sorttype: "DESC" }]
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching published posts:", error)
+    toast.error("Failed to fetch published posts")
+    return []
+  }
 }
 
 export const getPostsByCategory = async (category, limit = 5) => {
   await delay(300)
-  return posts
-    .filter(post => post.status === 'published' && post.category === category)
-    .map(getPostWithAuthor)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-    .slice(0, limit)
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [
+        { FieldName: "status", Operator: "EqualTo", Values: ["published"] },
+        { FieldName: "category", Operator: "EqualTo", Values: [category] }
+      ],
+      orderBy: [{ fieldName: "published_at", sorttype: "DESC" }],
+      pagingInfo: { limit: limit, offset: 0 }
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching posts by category:", error)
+    toast.error("Failed to fetch posts by category")
+    return []
+  }
 }
 
 export const getRecentPosts = async (limit = 5) => {
   await delay(200)
-  return posts
-    .map(getPostWithAuthor)
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, limit)
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      orderBy: [{ fieldName: "created_at", sorttype: "DESC" }],
+      pagingInfo: { limit: limit, offset: 0 }
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching recent posts:", error)
+    toast.error("Failed to fetch recent posts")
+    return []
+  }
 }
 
 export const getScheduledPosts = async () => {
   await delay(300)
-  return posts
-    .filter(post => post.status === 'scheduled' && post.scheduledPublishAt)
-    .map(getPostWithAuthor)
-    .sort((a, b) => new Date(a.scheduledPublishAt) - new Date(b.scheduledPublishAt))
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [{ FieldName: "status", Operator: "EqualTo", Values: ["scheduled"] }],
+      orderBy: [{ fieldName: "scheduled_publish_at", sorttype: "ASC" }]
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching scheduled posts:", error)
+    toast.error("Failed to fetch scheduled posts")
+    return []
+  }
 }
 
 export const getPostById = async (id) => {
   await delay(300)
-  const post = posts.find(p => p.Id === id)
-  if (!post) throw new Error('Post not found')
-  return getPostWithAuthor(post)
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ]
+    }
+    
+    const response = await apperClient.getRecordById("post", parseInt(id), params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      throw new Error('Post not found')
+    }
+    
+    return response.data
+  } catch (error) {
+    console.error("Error fetching post by ID:", error)
+    throw new Error('Post not found')
+  }
 }
 
 export const getPostBySlug = async (slug) => {
   await delay(300)
-  const post = posts.find(p => p.slug === slug)
-  if (!post) throw new Error('Post not found')
-  
-  const postWithAuthor = getPostWithAuthor(post)
-  
-// Generate semantic links if post is published
-  if (post.status === 'published') {
-    try {
-      const relatedPosts = await getRelatedPosts(post.Id, 5)
-      
-      // Use local semantic linking to avoid circular dependency
-      postWithAuthor.contentWithLinks = generateSemanticLinks(post.content, post.Id, relatedPosts)
-      
-      // Add semantic metadata
-      postWithAuthor.semanticStats = {
-        linksGenerated: (postWithAuthor.contentWithLinks.match(/semantic-link/g) || []).length,
-        relatedPostsAnalyzed: relatedPosts.length,
-        averageSimilarity: relatedPosts.reduce((sum, p) => sum + (p.similarityScore || 0), 0) / Math.max(relatedPosts.length, 1)
-      }
-    } catch (error) {
-      console.warn('Semantic linking failed:', error)
-      postWithAuthor.contentWithLinks = post.content
-      postWithAuthor.semanticStats = { linksGenerated: 0, relatedPostsAnalyzed: 0, averageSimilarity: 0 }
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [{ FieldName: "slug", Operator: "EqualTo", Values: [slug] }]
     }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success || !response.data || response.data.length === 0) {
+      throw new Error('Post not found')
+    }
+    
+    const post = response.data[0]
+    
+    // Generate semantic links if post is published
+    if (post.status === 'published') {
+      try {
+        const relatedPosts = await getRelatedPosts(post.Id, 5)
+        
+        // Use local semantic linking to avoid circular dependency
+        post.content_with_links = generateSemanticLinks(post.content, post.Id, relatedPosts)
+        
+        // Add semantic metadata
+        post.semanticStats = {
+          linksGenerated: (post.content_with_links.match(/semantic-link/g) || []).length,
+          relatedPostsAnalyzed: relatedPosts.length,
+          averageSimilarity: relatedPosts.reduce((sum, p) => sum + (p.similarityScore || 0), 0) / Math.max(relatedPosts.length, 1)
+        }
+      } catch (error) {
+        console.warn('Semantic linking failed:', error)
+        post.content_with_links = post.content
+        post.semanticStats = { linksGenerated: 0, relatedPostsAnalyzed: 0, averageSimilarity: 0 }
+      }
+    }
+    
+    return post
+  } catch (error) {
+    console.error("Error fetching post by slug:", error)
+    throw new Error('Post not found')
   }
-  
-  return postWithAuthor
 }
 
 export const getPostsByAuthor = async (authorId) => {
   await delay(300)
-  return posts
-    .filter(post => post.authorId === authorId && post.status === 'published')
-    .map(getPostWithAuthor)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [
+        { FieldName: "author_id", Operator: "EqualTo", Values: [parseInt(authorId)] },
+        { FieldName: "status", Operator: "EqualTo", Values: ["published"] }
+      ],
+      orderBy: [{ fieldName: "published_at", sorttype: "DESC" }]
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      return []
+    }
+    
+    return response.data || []
+  } catch (error) {
+    console.error("Error fetching posts by author:", error)
+    toast.error("Failed to fetch posts by author")
+    return []
+  }
 }
 
 export const getRelatedPosts = async (postId, limit = 3) => {
   await delay(300)
-  const currentPost = posts.find(p => p.Id === postId)
-  if (!currentPost) return []
-  
-  // Get all published posts except current
-  const candidates = posts.filter(post => 
-    post.Id !== postId && post.status === 'published'
-  )
-  
-  // Calculate semantic similarity scores
-  const scoredPosts = candidates.map(post => ({
-    ...post,
-    similarityScore: calculateSimilarity(currentPost, post)
-  }))
-  
-  // Sort by similarity score and filter by threshold
-  return scoredPosts
-    .filter(post => post.similarityScore >= LINKING_CONFIG.similarityThreshold)
-    .sort((a, b) => b.similarityScore - a.similarityScore)
-    .slice(0, limit)
-    .map(post => getPostWithAuthor(post))
+  try {
+    const currentPost = await getPostById(postId)
+    if (!currentPost) return []
+    
+    const apperClient = getApperClient()
+    const params = {
+      fields: [
+        { field: { Name: "Name" } },
+        { field: { Name: "Tags" } },
+        { field: { Name: "author_id" }, referenceField: { field: { Name: "Name" } } },
+        { field: { Name: "tenant_id" } },
+        { field: { Name: "title" } },
+        { field: { Name: "slug" } },
+        { field: { Name: "content" } },
+        { field: { Name: "excerpt" } },
+        { field: { Name: "featured_image" } },
+        { field: { Name: "meta_title" } },
+        { field: { Name: "meta_description" } },
+        { field: { Name: "keywords" } },
+        { field: { Name: "category" } },
+        { field: { Name: "status" } },
+        { field: { Name: "views" } },
+        { field: { Name: "scheduled_publish_at" } },
+        { field: { Name: "published_at" } },
+        { field: { Name: "created_at" } },
+        { field: { Name: "updated_at" } },
+        { field: { Name: "content_with_links" } }
+      ],
+      where: [{ FieldName: "status", Operator: "EqualTo", Values: ["published"] }]
+    }
+    
+    const response = await apperClient.fetchRecords("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      return []
+    }
+    
+    const candidates = (response.data || []).filter(post => post.Id !== postId)
+    
+    // Calculate semantic similarity scores
+    const scoredPosts = candidates.map(post => ({
+      ...post,
+      similarityScore: calculateSimilarity(currentPost, post)
+    }))
+    
+    // Sort by similarity score and filter by threshold
+    return scoredPosts
+      .filter(post => post.similarityScore >= LINKING_CONFIG.similarityThreshold)
+      .sort((a, b) => b.similarityScore - a.similarityScore)
+      .slice(0, limit)
+  } catch (error) {
+    console.error("Error fetching related posts:", error)
+    return []
+  }
 }
 
 export const createPost = async (postData) => {
   await delay(400)
-  const newId = Math.max(...posts.map(p => p.Id)) + 1
-  const newPost = {
-    ...postData,
-    Id: newId,
-    views: 0,
-    scheduledPublishAt: postData.scheduledPublishAt || null,
-createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-  posts.push(newPost)
-  
-  // Update sitemap and RSS feed if post is published
-  if (newPost.status === 'published') {
-    try {
-      await updateSitemap()
-      await generateRSSFeed()
-    } catch (error) {
-      console.warn('Failed to update sitemap/RSS:', error)
+  try {
+    const apperClient = getApperClient()
+    
+    // Only include Updateable fields
+    const params = {
+      records: [{
+        Name: postData.Name || postData.title,
+        Tags: postData.Tags || postData.keywords?.join(',') || '',
+        author_id: parseInt(postData.author_id || postData.authorId),
+        tenant_id: postData.tenant_id || 'demo-tenant',
+        title: postData.title,
+        slug: postData.slug,
+        content: postData.content,
+        excerpt: postData.excerpt,
+        featured_image: postData.featured_image || postData.featuredImage,
+        meta_title: postData.meta_title || postData.metaTitle,
+        meta_description: postData.meta_description || postData.metaDescription,
+        keywords: Array.isArray(postData.keywords) ? postData.keywords.join(',') : postData.keywords,
+        category: postData.category,
+        status: postData.status,
+        views: postData.views || 0,
+        scheduled_publish_at: postData.scheduled_publish_at || postData.scheduledPublishAt,
+        published_at: postData.published_at || postData.publishedAt,
+        created_at: postData.created_at || new Date().toISOString(),
+        updated_at: postData.updated_at || new Date().toISOString(),
+        content_with_links: postData.content_with_links || postData.content
+      }]
     }
+    
+    const response = await apperClient.createRecord("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      throw new Error('Failed to create post')
+    }
+    
+    if (response.results) {
+      const successfulRecords = response.results.filter(result => result.success)
+      const failedRecords = response.results.filter(result => !result.success)
+      
+      if (failedRecords.length > 0) {
+        console.error(`Failed to create ${failedRecords.length} records:${JSON.stringify(failedRecords)}`)
+        failedRecords.forEach(record => {
+          record.errors?.forEach(error => {
+            toast.error(`${error.fieldLabel}: ${error.message}`)
+          })
+          if (record.message) toast.error(record.message)
+        })
+      }
+      
+      const createdPost = successfulRecords[0]?.data
+      if (createdPost) {
+        toast.success('Post created successfully')
+        
+        // Update sitemap and RSS feed if post is published
+        if (createdPost.status === 'published') {
+          try {
+            await updateSitemap()
+            await generateRSSFeed()
+          } catch (error) {
+            console.warn('Failed to update sitemap/RSS:', error)
+          }
+        }
+        
+        return createdPost
+      }
+    }
+    
+    throw new Error('Failed to create post')
+  } catch (error) {
+    console.error("Error creating post:", error)
+    throw error
   }
-  
-  return getPostWithAuthor(newPost)
 }
+
 export const updatePost = async (id, postData) => {
   await delay(400)
-  const index = posts.findIndex(p => p.Id === id)
-  if (index === -1) throw new Error('Post not found')
-  
-  const oldStatus = posts[index].status
-  
-  posts[index] = {
-    ...posts[index],
-    ...postData,
-    Id: id,
-    scheduledPublishAt: postData.scheduledPublishAt || posts[index].scheduledPublishAt,
-    updatedAt: new Date().toISOString()
-  }
-  
-  // Update sitemap and RSS feed if publish status changed
-  const newStatus = posts[index].status
-  if (oldStatus !== newStatus && (newStatus === 'published' || oldStatus === 'published')) {
-    try {
-      await updateSitemap()
-      await generateRSSFeed()
-    } catch (error) {
-      console.warn('Failed to update sitemap/RSS:', error)
+  try {
+    const apperClient = getApperClient()
+    
+    // Only include Updateable fields plus Id
+    const params = {
+      records: [{
+        Id: parseInt(id),
+        Name: postData.Name || postData.title,
+        Tags: postData.Tags || postData.keywords?.join(',') || '',
+        author_id: parseInt(postData.author_id || postData.authorId),
+        tenant_id: postData.tenant_id || 'demo-tenant',
+        title: postData.title,
+        slug: postData.slug,
+        content: postData.content,
+        excerpt: postData.excerpt,
+        featured_image: postData.featured_image || postData.featuredImage,
+        meta_title: postData.meta_title || postData.metaTitle,
+        meta_description: postData.meta_description || postData.metaDescription,
+        keywords: Array.isArray(postData.keywords) ? postData.keywords.join(',') : postData.keywords,
+        category: postData.category,
+        status: postData.status,
+        views: postData.views,
+        scheduled_publish_at: postData.scheduled_publish_at || postData.scheduledPublishAt,
+        published_at: postData.published_at || postData.publishedAt,
+        created_at: postData.created_at,
+        updated_at: new Date().toISOString(),
+        content_with_links: postData.content_with_links || postData.content
+      }]
     }
+    
+    const response = await apperClient.updateRecord("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      throw new Error('Failed to update post')
+    }
+    
+    if (response.results) {
+      const successfulUpdates = response.results.filter(result => result.success)
+      const failedUpdates = response.results.filter(result => !result.success)
+      
+      if (failedUpdates.length > 0) {
+        console.error(`Failed to update ${failedUpdates.length} records:${JSON.stringify(failedUpdates)}`)
+        failedUpdates.forEach(record => {
+          record.errors?.forEach(error => {
+            toast.error(`${error.fieldLabel}: ${error.message}`)
+          })
+          if (record.message) toast.error(record.message)
+        })
+      }
+      
+      const updatedPost = successfulUpdates[0]?.data
+      if (updatedPost) {
+        toast.success('Post updated successfully')
+        
+        // Update sitemap and RSS feed
+        try {
+          await updateSitemap()
+          await generateRSSFeed()
+        } catch (error) {
+          console.warn('Failed to update sitemap/RSS:', error)
+        }
+        
+        return updatedPost
+      }
+    }
+    
+    throw new Error('Failed to update post')
+  } catch (error) {
+    console.error("Error updating post:", error)
+    throw error
   }
-  return getPostWithAuthor(posts[index])
 }
+
 export const deletePost = async (id) => {
   await delay(300)
-  const index = posts.findIndex(p => p.Id === id)
-  if (index === -1) throw new Error('Post not found')
-  
-  const deletedPost = posts[index]
-  posts.splice(index, 1)
-  
-  // Update sitemap and RSS feed if published post was deleted
-  if (deletedPost.status === 'published') {
-    try {
-      await updateSitemap()
-      await generateRSSFeed()
-    } catch (error) {
-      console.warn('Failed to update sitemap/RSS:', error)
+  try {
+    const apperClient = getApperClient()
+    const params = {
+      RecordIds: [parseInt(id)]
     }
+    
+    const response = await apperClient.deleteRecord("post", params)
+    
+    if (!response.success) {
+      console.error(response.message)
+      toast.error(response.message)
+      throw new Error('Failed to delete post')
+    }
+    
+    if (response.results) {
+      const successfulDeletions = response.results.filter(result => result.success)
+      const failedDeletions = response.results.filter(result => !result.success)
+      
+      if (failedDeletions.length > 0) {
+        console.error(`Failed to delete ${failedDeletions.length} records:${JSON.stringify(failedDeletions)}`)
+        failedDeletions.forEach(record => {
+          if (record.message) toast.error(record.message)
+        })
+      }
+      
+      if (successfulDeletions.length > 0) {
+        toast.success('Post deleted successfully')
+        
+        // Update sitemap and RSS feed
+        try {
+          await updateSitemap()
+          await generateRSSFeed()
+        } catch (error) {
+          console.warn('Failed to update sitemap/RSS:', error)
+        }
+        
+        return true
+      }
+    }
+    
+    throw new Error('Failed to delete post')
+  } catch (error) {
+    console.error("Error deleting post:", error)
+    throw error
   }
 }
+
 export const schedulePost = async (id, scheduledDate) => {
   await delay(300)
-  const index = posts.findIndex(p => p.Id === id)
-  if (index === -1) throw new Error('Post not found')
-  
-  posts[index] = {
-    ...posts[index],
-    status: 'scheduled',
-    scheduledPublishAt: scheduledDate,
-    updatedAt: new Date().toISOString()
-  }
-  
-  // Update sitemap and RSS feed when post is scheduled (removing from published if it was)
   try {
-    await updateSitemap()
-    await generateRSSFeed()
+    const updateData = {
+      status: 'scheduled',
+      scheduled_publish_at: scheduledDate,
+      updated_at: new Date().toISOString()
+    }
+    
+    const updatedPost = await updatePost(id, updateData)
+    toast.success('Post scheduled successfully')
+    return updatedPost
   } catch (error) {
-    console.warn('Failed to update sitemap/RSS:', error)
+    console.error("Error scheduling post:", error)
+    throw error
   }
-  
-  return getPostWithAuthor(posts[index])
 }
+
 export const updateScheduledPost = async (id, newDate) => {
   await delay(300)
-  const index = posts.findIndex(p => p.Id === id)
-  if (index === -1) throw new Error('Post not found')
-  
-  posts[index] = {
-    ...posts[index],
-    scheduledPublishAt: newDate,
-    updatedAt: new Date().toISOString()
-  }
-  
-  // Update sitemap and RSS feed for scheduled post changes
   try {
-    await updateSitemap()
-    await generateRSSFeed()
+    const updateData = {
+      scheduled_publish_at: newDate,
+      updated_at: new Date().toISOString()
+    }
+    
+    const updatedPost = await updatePost(id, updateData)
+    toast.success('Scheduled post updated successfully')
+    return updatedPost
   } catch (error) {
-    console.warn('Failed to update sitemap/RSS:', error)
+    console.error("Error updating scheduled post:", error)
+    throw error
   }
-  
-  return getPostWithAuthor(posts[index])
 }
+
 export const incrementPostViews = async (id) => {
   await delay(100)
-  const post = posts.find(p => p.Id === id)
-  if (post) {
-    post.views += 1
+  try {
+    const post = await getPostById(id)
+    if (post) {
+      const updateData = {
+        views: (post.views || 0) + 1
+      }
+      await updatePost(id, updateData)
+      return updateData.views
+    }
+    return 0
+  } catch (error) {
+    console.error("Error incrementing post views:", error)
+    return 0
   }
-  return post?.views || 0
 }

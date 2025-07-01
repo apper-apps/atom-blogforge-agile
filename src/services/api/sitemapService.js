@@ -1,4 +1,4 @@
-import { posts } from '@/services/mockData/posts'
+import { getPublishedPosts } from '@/services/api/postsService'
 import { getBlogSettings } from '@/services/api/settingsService'
 
 // Helper function to delay execution
@@ -17,8 +17,8 @@ export const generateSitemap = async () => {
       return null
     }
     
-    const baseUrl = settings.seo.baseUrl.replace(/\/$/, '')
-    const publishedPosts = posts.filter(post => post.status === 'published')
+const baseUrl = (settings.seo?.baseUrl || window.location.origin).replace(/\/$/, '')
+    const publishedPosts = await getPublishedPosts()
     
     // Build sitemap XML
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -110,16 +110,16 @@ export const getSitemapStats = async () => {
   await delay(200)
   
   try {
-    const settings = await getBlogSettings()
-    const publishedPosts = posts.filter(post => post.status === 'published')
+const settings = await getBlogSettings()
+    const publishedPosts = await getPublishedPosts()
     
     return {
       enabled: settings.seo.sitemapEnabled || false,
       baseUrl: settings.seo.baseUrl || '',
       totalUrls: publishedPosts.length + 2, // posts + homepage + blog index
       publishedPosts: publishedPosts.length,
-      lastGenerated: lastGenerated,
-      sitemapUrl: settings.seo.baseUrl ? `${settings.seo.baseUrl.replace(/\/$/, '')}/sitemap.xml` : null
+lastGenerated: lastGenerated,
+      sitemapUrl: settings.seo?.baseUrl ? `${settings.seo.baseUrl.replace(/\/$/, '')}/sitemap.xml` : null
     }
   } catch (error) {
     console.error('Error getting sitemap stats:', error)
@@ -138,8 +138,8 @@ export const clearSitemapCache = async () => {
 // Initialize sitemap on service load
 const initializeSitemap = async () => {
   try {
-    const settings = await getBlogSettings()
-    if (settings.seo.sitemapEnabled) {
+const settings = await getBlogSettings()
+    if (settings.seo?.sitemapEnabled) {
       await generateSitemap()
     }
   } catch (error) {
