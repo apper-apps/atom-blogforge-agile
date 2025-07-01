@@ -8,11 +8,12 @@ const AdminLayout = ({ children, darkMode, toggleDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const location = useLocation()
 
-  const navigation = [
+const navigation = [
     { name: 'Dashboard', href: '/admin', icon: 'BarChart3' },
     { name: 'Posts', href: '/admin/posts', icon: 'FileText' },
     { name: 'Analytics', href: '/admin/analytics', icon: 'TrendingUp' },
     { name: 'Settings', href: '/admin/settings', icon: 'Settings' },
+    { name: 'DNS', href: '/admin/dns', icon: 'Globe' },
   ]
 
   const isActive = (href) => {

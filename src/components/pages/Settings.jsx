@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { toast } from 'react-toastify'
-import ApperIcon from '@/components/ApperIcon'
-import Button from '@/components/atoms/Button'
-import Input from '@/components/atoms/Input'
-import { getBlogSettings, updateBlogSettings } from '@/services/api/settingsService'
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import { toast } from "react-toastify";
+import ApperIcon from "@/components/ApperIcon";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import { getBlogSettings, updateBlogSettings } from "@/services/api/settingsService";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general')
@@ -32,12 +32,26 @@ const Settings = () => {
       accentColor: '#7c3aed',
       darkMode: false
     }
-  })
+})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  
+  // DNS management state
+  const [domains, setDomains] = useState([])
+  const [showAddDomain, setShowAddDomain] = useState(false)
+  const [showAddRecord, setShowAddRecord] = useState(false)
+  const [selectedDomain, setSelectedDomain] = useState(null)
+  const [newDomain, setNewDomain] = useState('')
+  const [newRecord, setNewRecord] = useState({
+    type: 'A',
+    name: '',
+    value: '',
+    ttl: 3600
+  })
 
   useEffect(() => {
     loadSettings()
+    loadDomains()
   }, [])
 
   const loadSettings = async () => {
@@ -49,6 +63,31 @@ const Settings = () => {
       toast.error('Failed to load settings')
     } finally {
       setLoading(false)
+    }
+}
+
+  const loadDomains = async () => {
+    try {
+      // Mock domains data - replace with actual API call
+      setDomains([
+        {
+          Id: '1',
+          domain: 'example.com',
+          verified: true,
+          lastVerified: new Date().toISOString(),
+          dnsRecords: [
+            {
+              Id: '1',
+              type: 'A',
+              name: '@',
+              value: '192.168.1.1',
+              ttl: 3600
+            }
+          ]
+        }
+      ])
+    } catch (err) {
+      toast.error('Failed to load domains')
     }
   }
 
@@ -79,11 +118,110 @@ const Settings = () => {
     })
   }
 
-  const tabs = [
+  const handleAddDomain = async () => {
+    if (!newDomain.trim()) return
+    
+    try {
+      setSaving(true)
+      const newDomainObj = {
+        Id: Date.now().toString(),
+        domain: newDomain.trim(),
+        verified: false,
+        lastVerified: null,
+        dnsRecords: []
+      }
+      setDomains(prev => [...prev, newDomainObj])
+      setNewDomain('')
+      setShowAddDomain(false)
+      toast.success('Domain added successfully')
+    } catch (err) {
+      toast.error('Failed to add domain')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleVerifyDomain = async (domainId) => {
+    try {
+      setSaving(true)
+      setDomains(prev => prev.map(domain => 
+        domain.Id === domainId 
+          ? { ...domain, verified: true, lastVerified: new Date().toISOString() }
+          : domain
+      ))
+      toast.success('Domain verified successfully')
+    } catch (err) {
+      toast.error('Failed to verify domain')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteDomain = async (domainId) => {
+    if (!confirm('Are you sure you want to delete this domain?')) return
+    
+    try {
+      setSaving(true)
+      setDomains(prev => prev.filter(domain => domain.Id !== domainId))
+      toast.success('Domain deleted successfully')
+    } catch (err) {
+      toast.error('Failed to delete domain')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddDnsRecord = async () => {
+    if (!newRecord.name || !newRecord.value || !selectedDomain) return
+    
+    try {
+      setSaving(true)
+      const record = {
+        Id: Date.now().toString(),
+        ...newRecord
+      }
+      
+      setDomains(prev => prev.map(domain => 
+        domain.Id === selectedDomain.Id 
+          ? { ...domain, dnsRecords: [...domain.dnsRecords, record] }
+          : domain
+      ))
+      
+      setNewRecord({ type: 'A', name: '', value: '', ttl: 3600 })
+      setShowAddRecord(false)
+      setSelectedDomain(null)
+      toast.success('DNS record added successfully')
+    } catch (err) {
+      toast.error('Failed to add DNS record')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteDnsRecord = async (domainId, recordId) => {
+    if (!confirm('Are you sure you want to delete this DNS record?')) return
+    
+    try {
+      setSaving(true)
+      setDomains(prev => prev.map(domain => 
+        domain.Id === domainId 
+          ? { ...domain, dnsRecords: domain.dnsRecords.filter(record => record.Id !== recordId) }
+          : domain
+      ))
+      toast.success('DNS record deleted successfully')
+    } catch (err) {
+      toast.error('Failed to delete DNS record')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+const tabs = [
     { id: 'general', label: 'General', icon: 'Settings' },
     { id: 'social', label: 'Social Media', icon: 'Share2' },
     { id: 'seo', label: 'SEO', icon: 'Search' },
-    { id: 'theme', label: 'Theme', icon: 'Palette' }
+    { id: 'theme', label: 'Theme', icon: 'Palette' },
+    { id: 'dns', label: 'DNS', icon: 'Globe' }
   ]
 
   if (loading) {
@@ -394,6 +532,268 @@ const Settings = () => {
                 </label>
               </div>
             </div>
+          </div>
+)}
+
+        {/* DNS Management */}
+        {activeTab === 'dns' && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                  Domain Management
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Manage custom domains and DNS settings for your blog
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowAddDomain(true)}
+                className="flex items-center space-x-2"
+              >
+                <ApperIcon name="Plus" size={16} />
+                <span>Add Domain</span>
+              </Button>
+            </div>
+
+            {/* Domains List */}
+            <div className="grid gap-6">
+              {domains.map((domain) => (
+                <div key={domain.Id} className="card p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        domain.verified ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}></div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                          {domain.domain}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {domain.verified ? 'Verified' : 'Pending Verification'}
+                          {domain.lastVerified && (
+                            <span className="ml-2">
+                              • Last verified: {new Date(domain.lastVerified).toLocaleDateString()}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {!domain.verified && (
+                        <Button
+                          onClick={() => handleVerifyDomain(domain.Id)}
+                          variant="outline"
+                          size="sm"
+                          loading={saving}
+                        >
+                          Verify
+                        </Button>
+                      )}
+                      <Button
+                        onClick={() => {
+                          setSelectedDomain(domain)
+                          setShowAddRecord(true)
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <ApperIcon name="Plus" size={14} />
+                      </Button>
+                      <Button
+                        onClick={() => handleDeleteDomain(domain.Id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <ApperIcon name="Trash2" size={14} />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* DNS Records */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900 dark:text-gray-100">DNS Records</h4>
+                    {domain.dnsRecords.length === 0 ? (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        No DNS records configured
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                              <th className="text-left py-2 font-medium text-gray-700 dark:text-gray-300">Type</th>
+                              <th className="text-left py-2 font-medium text-gray-700 dark:text-gray-300">Name</th>
+                              <th className="text-left py-2 font-medium text-gray-700 dark:text-gray-300">Value</th>
+                              <th className="text-left py-2 font-medium text-gray-700 dark:text-gray-300">TTL</th>
+                              <th className="text-right py-2 font-medium text-gray-700 dark:text-gray-300">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {domain.dnsRecords.map((record) => (
+                              <tr key={record.Id} className="border-b border-gray-100 dark:border-gray-800">
+                                <td className="py-2">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    record.type === 'A' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                    record.type === 'CNAME' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    record.type === 'TXT' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                                  }`}>
+                                    {record.type}
+                                  </span>
+                                </td>
+                                <td className="py-2 text-gray-900 dark:text-gray-100">{record.name}</td>
+                                <td className="py-2 text-gray-600 dark:text-gray-400 font-mono text-xs max-w-xs truncate">
+                                  {record.value}
+                                </td>
+                                <td className="py-2 text-gray-600 dark:text-gray-400">{record.ttl}s</td>
+                                <td className="py-2 text-right">
+                                  <button
+                                    onClick={() => handleDeleteDnsRecord(domain.Id, record.Id)}
+                                    className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                  >
+                                    <ApperIcon name="Trash2" size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {domains.length === 0 && (
+                <div className="card p-8 text-center">
+                  <ApperIcon name="Globe" size={48} className="mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    No domains configured
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Add your first custom domain to get started
+                  </p>
+                  <Button onClick={() => setShowAddDomain(true)}>
+                    Add Domain
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Add Domain Modal */}
+            {showAddDomain && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Add Domain
+                    </h3>
+                    <button
+                      onClick={() => setShowAddDomain(false)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <ApperIcon name="X" size={20} />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <Input
+                      label="Domain Name"
+                      value={newDomain}
+                      onChange={(e) => setNewDomain(e.target.value)}
+                      placeholder="example.com"
+                    />
+                    <div className="flex justify-end space-x-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAddDomain(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddDomain}
+                        loading={saving}
+                        disabled={!newDomain.trim() || saving}
+                      >
+                        Add Domain
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add DNS Record Modal */}
+            {showAddRecord && selectedDomain && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      Add DNS Record
+                    </h3>
+                    <button
+                      onClick={() => setShowAddRecord(false)}
+                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    >
+                      <ApperIcon name="X" size={20} />
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Record Type
+                      </label>
+                      <select
+                        value={newRecord.type}
+                        onChange={(e) => setNewRecord(prev => ({ ...prev, type: e.target.value }))}
+                        className="input-field"
+                      >
+                        <option value="A">A</option>
+                        <option value="CNAME">CNAME</option>
+                        <option value="TXT">TXT</option>
+                        <option value="MX">MX</option>
+                      </select>
+                    </div>
+                    <Input
+                      label="Name"
+                      value={newRecord.name}
+                      onChange={(e) => setNewRecord(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="@ or subdomain"
+                    />
+                    <Input
+                      label="Value"
+                      value={newRecord.value}
+                      onChange={(e) => setNewRecord(prev => ({ ...prev, value: e.target.value }))}
+                      placeholder="IP address or target"
+                    />
+                    <Input
+                      label="TTL (seconds)"
+                      type="number"
+                      value={newRecord.ttl}
+                      onChange={(e) => setNewRecord(prev => ({ ...prev, ttl: parseInt(e.target.value) || 3600 }))}
+                      placeholder="3600"
+                    />
+                    <div className="flex justify-end space-x-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowAddRecord(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddDnsRecord}
+                        loading={saving}
+                        disabled={!newRecord.name || !newRecord.value || saving}
+                      >
+                        Add Record
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
