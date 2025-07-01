@@ -75,7 +75,6 @@ export const getBlogEngagementMetrics = async () => {
 // Generate engagement metrics for each published post
   const posts = await getAllPosts()
   const publishedPosts = posts.filter(post => post.status === 'published')
-  const publishedPosts = posts.filter(post => post.status === 'published')
   
   return publishedPosts.slice(0, 8).map(post => ({
     Id: post.Id,
