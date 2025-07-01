@@ -20,12 +20,14 @@ const Settings = () => {
       linkedin: '',
       github: ''
     },
-    seo: {
+seo: {
       metaTitle: '',
       metaDescription: '',
       keywords: '',
       googleAnalytics: '',
-      facebookPixel: ''
+      facebookPixel: '',
+      sitemapEnabled: true,
+      baseUrl: 'https://yourblog.com'
     },
     theme: {
       primaryColor: '#2563eb',
@@ -457,9 +459,63 @@ const tabs = [
                 <Input
                   label="Facebook Pixel ID"
                   value={settings.seo.facebookPixel}
-                  onChange={(e) => handleInputChange('seo.facebookPixel', e.target.value)}
+onChange={(e) => handleInputChange('seo.facebookPixel', e.target.value)}
                   placeholder="123456789012345"
                 />
+              </div>
+            </div>
+
+            <div className="card p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                XML Sitemap
+              </h2>
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                      Enable XML Sitemap
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Automatically generate and update XML sitemap for search engines
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.seo.sitemapEnabled}
+                      onChange={(e) => handleInputChange('seo.sitemapEnabled', e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+                  </label>
+                </div>
+                
+                <Input
+                  label="Base URL"
+                  value={settings.seo.baseUrl}
+                  onChange={(e) => handleInputChange('seo.baseUrl', e.target.value)}
+                  placeholder="https://yourblog.com"
+                  helperText="Base URL for generating sitemap links"
+                />
+                
+                {settings.seo.sitemapEnabled && settings.seo.baseUrl && (
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <ApperIcon name="Info" size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                          Sitemap URL
+                        </p>
+                        <p className="text-sm text-blue-600 dark:text-blue-300 mt-1 font-mono">
+                          {settings.seo.baseUrl.replace(/\/$/, '')}/sitemap.xml
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          Submit this URL to Google Search Console and other search engines
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
