@@ -22,13 +22,20 @@ export const getPublishedPosts = async () => {
     .map(getPostWithAuthor)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 }
-
 export const getRecentPosts = async (limit = 5) => {
   await delay(200)
   return posts
     .map(getPostWithAuthor)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, limit)
+}
+
+export const getScheduledPosts = async () => {
+  await delay(300)
+  return posts
+    .filter(post => post.status === 'scheduled' && post.scheduledPublishAt)
+    .map(getPostWithAuthor)
+    .sort((a, b) => new Date(a.scheduledPublishAt) - new Date(b.scheduledPublishAt))
 }
 
 export const getPostById = async (id) => {
@@ -76,6 +83,7 @@ export const createPost = async (postData) => {
     ...postData,
     Id: newId,
     views: 0,
+    scheduledPublishAt: postData.scheduledPublishAt || null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   }
@@ -92,6 +100,7 @@ export const updatePost = async (id, postData) => {
     ...posts[index],
     ...postData,
     Id: id,
+    scheduledPublishAt: postData.scheduledPublishAt || posts[index].scheduledPublishAt,
     updatedAt: new Date().toISOString()
   }
   return getPostWithAuthor(posts[index])
@@ -104,6 +113,33 @@ export const deletePost = async (id) => {
   
   posts.splice(index, 1)
   return true
+}
+
+export const schedulePost = async (id, scheduledDate) => {
+  await delay(300)
+  const index = posts.findIndex(p => p.Id === id)
+  if (index === -1) throw new Error('Post not found')
+  
+  posts[index] = {
+    ...posts[index],
+    status: 'scheduled',
+    scheduledPublishAt: scheduledDate,
+    updatedAt: new Date().toISOString()
+  }
+  return getPostWithAuthor(posts[index])
+}
+
+export const updateScheduledPost = async (id, newDate) => {
+  await delay(300)
+  const index = posts.findIndex(p => p.Id === id)
+  if (index === -1) throw new Error('Post not found')
+  
+  posts[index] = {
+    ...posts[index],
+    scheduledPublishAt: newDate,
+    updatedAt: new Date().toISOString()
+  }
+  return getPostWithAuthor(posts[index])
 }
 
 export const incrementPostViews = async (id) => {

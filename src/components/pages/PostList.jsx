@@ -83,10 +83,11 @@ const PostList = () => {
   if (loading) return <Loading type="posts" />
   if (error) return <Error message={error} onRetry={loadPosts} />
 
-  const statusCounts = {
+const statusCounts = {
     all: posts.length,
     published: posts.filter(p => p.status === 'published').length,
     draft: posts.filter(p => p.status === 'draft').length,
+    scheduled: posts.filter(p => p.status === 'scheduled').length,
     archived: posts.filter(p => p.status === 'archived').length
   }
 
@@ -192,11 +193,24 @@ const PostList = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {post.title}
+{post.title}
                       </h3>
-                      <Badge variant={post.status === 'published' ? 'success' : post.status === 'draft' ? 'warning' : 'default'}>
-                        {post.status}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={
+                          post.status === 'published' ? 'success' : 
+                          post.status === 'draft' ? 'warning' : 
+                          post.status === 'scheduled' ? 'info' : 
+                          'default'
+                        }>
+                          {post.status}
+                        </Badge>
+                        {post.status === 'scheduled' && post.scheduledPublishAt && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center">
+                            <ApperIcon name="Clock" size={12} className="mr-1" />
+                            {new Date(post.scheduledPublishAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 mb-2">
                       {post.excerpt}

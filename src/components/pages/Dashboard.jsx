@@ -161,87 +161,107 @@ const Dashboard = () => {
         )}
       </div>
 
-{/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="card p-6 cursor-pointer"
-          onClick={() => window.location.href = '/admin/posts/new'}
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
-              <ApperIcon name="Plus" size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                Create New Post
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Start writing your next blog post
-              </p>
-            </div>
+{/* Drafts and Scheduling Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Drafts Section */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <ApperIcon name="FileEdit" size={20} className="mr-2" />
+              Drafts & In Progress
+            </h2>
+            <Link
+              to="/admin/posts?filter=draft"
+              className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
+            >
+              View All
+            </Link>
           </div>
-        </motion.div>
+          
+          <div className="space-y-3">
+            {recentPosts.filter(post => post.status === 'draft').slice(0, 3).map((post) => (
+              <div key={post.Id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {post.title || 'Untitled Draft'}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Updated {new Date(post.updatedAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <Link
+                  to={`/admin/posts/edit/${post.Id}`}
+                  className="ml-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                >
+                  <ApperIcon name="Edit" size={16} />
+                </Link>
+              </div>
+            ))}
+            
+            {recentPosts.filter(post => post.status === 'draft').length === 0 && (
+              <div className="text-center py-4">
+                <ApperIcon name="FileText" size={32} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No drafts yet</p>
+                <Link
+                  to="/admin/posts/new"
+                  className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
+                >
+                  Create your first draft
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
 
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="card p-6 cursor-pointer"
-          onClick={() => window.location.href = '/admin/media'}
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center">
-              <ApperIcon name="Image" size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                Media Library
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Upload and manage media files
-              </p>
-            </div>
+        {/* Scheduled Posts Section */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center">
+              <ApperIcon name="Calendar" size={20} className="mr-2" />
+              Scheduled Posts
+            </h2>
+            <Link
+              to="/admin/calendar"
+              className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
+            >
+              View Calendar
+            </Link>
           </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="card p-6 cursor-pointer"
-          onClick={() => window.location.href = '/admin/analytics'}
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
-              <ApperIcon name="BarChart3" size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                View Analytics
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Check your blog performance
-              </p>
-            </div>
+          
+          <div className="space-y-3">
+            {recentPosts.filter(post => post.status === 'scheduled' && post.scheduledPublishAt).slice(0, 3).map((post) => (
+              <div key={post.Id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {post.title}
+                  </h3>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">
+                    Scheduled for {new Date(post.scheduledPublishAt).toLocaleDateString()} at {new Date(post.scheduledPublishAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                </div>
+                <Link
+                  to={`/admin/posts/edit/${post.Id}`}
+                  className="ml-2 text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                >
+                  <ApperIcon name="Edit" size={16} />
+                </Link>
+              </div>
+            ))}
+            
+            {recentPosts.filter(post => post.status === 'scheduled').length === 0 && (
+              <div className="text-center py-4">
+                <ApperIcon name="Clock" size={32} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No scheduled posts</p>
+                <Link
+                  to="/admin/calendar"
+                  className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-sm"
+                >
+                  Schedule a post
+                </Link>
+              </div>
+            )}
           </div>
-        </motion.div>
-
-        <motion.div
-          whileHover={{ scale: 1.02 }}
-          className="card p-6 cursor-pointer"
-          onClick={() => window.location.href = '/admin/settings'}
-        >
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <ApperIcon name="Settings" size={24} className="text-white" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                Blog Settings
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Customize your blog appearance
-              </p>
-            </div>
-          </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   )

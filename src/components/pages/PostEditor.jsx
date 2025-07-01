@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { toast } from 'react-toastify'
-import ApperIcon from '@/components/ApperIcon'
-import Button from '@/components/atoms/Button'
-import Input from '@/components/atoms/Input'
-import Badge from '@/components/atoms/Badge'
-import { getPostById, createPost, updatePost } from '@/services/api/postsService'
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { toast } from "react-toastify";
+import ApperIcon from "@/components/ApperIcon";
+import Settings from "@/components/pages/Settings";
+import Badge from "@/components/atoms/Badge";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import { createPost, getPostById, updatePost } from "@/services/api/postsService";
 
 const PostEditor = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const isEdit = Boolean(id)
   
-  const [post, setPost] = useState({
+const [post, setPost] = useState({
     title: '',
     slug: '',
     content: '',
@@ -23,6 +24,7 @@ const PostEditor = () => {
     metaDescription: '',
     keywords: [],
     status: 'draft',
+    scheduledPublishAt: '',
     authorId: 1
   })
 const [loading, setLoading] = useState(false)
@@ -105,14 +107,14 @@ const [loading, setLoading] = useState(false)
     }
 
     try {
-      setSaving(true)
+setSaving(true)
       
       const postData = {
         ...post,
         status,
-        publishedAt: status === 'published' ? new Date().toISOString() : post.publishedAt
+        publishedAt: status === 'published' ? new Date().toISOString() : post.publishedAt,
+        scheduledPublishAt: status === 'scheduled' ? post.scheduledPublishAt : null
       }
-
       if (isEdit) {
         await updatePost(parseInt(id), postData)
         toast.success('Post updated successfully')
@@ -289,13 +291,13 @@ const [loading, setLoading] = useState(false)
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Status */}
+{/* Status */}
           <div className="card p-6">
             <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">
               Status
             </h3>
             <div className="space-y-2">
-              {['draft', 'published', 'archived'].map((status) => (
+              {['draft', 'published', 'scheduled', 'archived'].map((status) => (
                 <label key={status} className="flex items-center">
                   <input
                     type="radio"
@@ -310,6 +312,32 @@ const [loading, setLoading] = useState(false)
               ))}
             </div>
           </div>
+
+          {/* Scheduling */}
+          {post.status === 'scheduled' && (
+            <div className="card p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Schedule Publication
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Publish Date & Time
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={post.scheduledPublishAt ? new Date(post.scheduledPublishAt).toISOString().slice(0, 16) : ''}
+                    onChange={(e) => handleInputChange('scheduledPublishAt', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                    className="input-field"
+                    min={new Date().toISOString().slice(0, 16)}
+                  />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Post will be automatically published at the scheduled time
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* SEO */}
           <div className="card p-6">
@@ -379,8 +407,8 @@ const [loading, setLoading] = useState(false)
                   <ApperIcon name="X" size={12} className="ml-1" />
                 </Badge>
               ))}
-            </div>
 </div>
+          </div>
         </div>
       </div>
 

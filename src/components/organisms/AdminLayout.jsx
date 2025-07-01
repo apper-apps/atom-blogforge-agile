@@ -11,6 +11,7 @@ const AdminLayout = ({ children, darkMode, toggleDarkMode }) => {
 const navigation = [
     { name: 'Dashboard', href: '/admin', icon: 'BarChart3' },
     { name: 'Posts', href: '/admin/posts', icon: 'FileText' },
+    { name: 'Calendar', href: '/admin/calendar', icon: 'Calendar' },
     { name: 'Media', href: '/admin/media', icon: 'Image' },
     { name: 'Analytics', href: '/admin/analytics', icon: 'TrendingUp' },
     { name: 'Settings', href: '/admin/settings', icon: 'Settings' },
