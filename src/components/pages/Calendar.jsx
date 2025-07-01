@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar as BigCalendar, momentLocalizer } from 'react-big-calendar'
-import moment from 'moment'
+import { Calendar as BigCalendar, dateFnsLocalizer } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay } from 'date-fns'
 import { motion } from 'framer-motion'
 import { toast } from 'react-toastify'
 import ApperIcon from '@/components/ApperIcon'
@@ -12,8 +12,13 @@ import Error from '@/components/ui/Error'
 import { getAllPosts, schedulePost, updateScheduledPost } from '@/services/api/postsService'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
-const localizer = momentLocalizer(moment)
-
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek,
+  getDay,
+  locales: {}
+})
 const Calendar = () => {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
