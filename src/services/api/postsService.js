@@ -222,11 +222,10 @@ export const createPost = async (postData) => {
     Id: newId,
     views: 0,
     scheduledPublishAt: postData.scheduledPublishAt || null,
-    createdAt: new Date().toISOString(),
-updatedAt: new Date().toISOString()
+createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   }
   posts.push(newPost)
-posts.push(newPost)
   
   // Update sitemap and RSS feed if post is published
   if (newPost.status === 'published') {
@@ -237,22 +236,25 @@ posts.push(newPost)
       console.warn('Failed to update sitemap/RSS:', error)
     }
   }
+  
+  return getPostWithAuthor(newPost)
 }
 export const updatePost = async (id, postData) => {
   await delay(400)
   const index = posts.findIndex(p => p.Id === id)
   if (index === -1) throw new Error('Post not found')
   
+  const oldStatus = posts[index].status
+  
   posts[index] = {
     ...posts[index],
     ...postData,
-Id: id,
+    Id: id,
     scheduledPublishAt: postData.scheduledPublishAt || posts[index].scheduledPublishAt,
     updatedAt: new Date().toISOString()
   }
   
-// Update sitemap and RSS feed if publish status changed
-  const oldStatus = posts[index].status
+  // Update sitemap and RSS feed if publish status changed
   const newStatus = posts[index].status
   if (oldStatus !== newStatus && (newStatus === 'published' || oldStatus === 'published')) {
     try {
@@ -267,11 +269,10 @@ Id: id,
 export const deletePost = async (id) => {
   await delay(300)
   const index = posts.findIndex(p => p.Id === id)
-if (index === -1) throw new Error('Post not found')
+  if (index === -1) throw new Error('Post not found')
   
   const deletedPost = posts[index]
   posts.splice(index, 1)
-posts.splice(index, 1)
   
   // Update sitemap and RSS feed if published post was deleted
   if (deletedPost.status === 'published') {
@@ -292,10 +293,10 @@ export const schedulePost = async (id, scheduledDate) => {
     ...posts[index],
     status: 'scheduled',
     scheduledPublishAt: scheduledDate,
-scheduledPublishAt: scheduledDate,
     updatedAt: new Date().toISOString()
   }
-// Update sitemap and RSS feed when post is scheduled (removing from published if it was)
+  
+  // Update sitemap and RSS feed when post is scheduled (removing from published if it was)
   try {
     await updateSitemap()
     await generateRSSFeed()
@@ -312,10 +313,11 @@ export const updateScheduledPost = async (id, newDate) => {
   
   posts[index] = {
     ...posts[index],
-scheduledPublishAt: newDate,
+    scheduledPublishAt: newDate,
     updatedAt: new Date().toISOString()
   }
-// Update sitemap and RSS feed for scheduled post changes
+  
+  // Update sitemap and RSS feed for scheduled post changes
   try {
     await updateSitemap()
     await generateRSSFeed()

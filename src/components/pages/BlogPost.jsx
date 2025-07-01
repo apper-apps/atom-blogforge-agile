@@ -1,44 +1,33 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { format } from 'date-fns'
-import ApperIcon from '@/components/ApperIcon'
-import Loading from '@/components/ui/Loading'
-import Error from '@/components/ui/Error'
-import ShareButtons from '@/components/molecules/ShareButtons'
-import { getPostBySlug, incrementPostViews } from '@/services/api/postsService'
-import { getRelatedPosts } from '@/services/api/postsService'
+import React, { useEffect, useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+import ApperIcon from "@/components/ApperIcon";
+import ShareButtons from "@/components/molecules/ShareButtons";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import { getPostBySlug, getRelatedPosts, incrementPostViews } from "@/services/api/postsService";
 
-// Add RSS feed autodiscovery
-useEffect(() => {
-  const link = document.createElement('link')
-  link.rel = 'alternate'
-  link.type = 'application/rss+xml'
-  link.title = 'RSS Feed'
-  link.href = '/rss.xml'
-  document.head.appendChild(link)
-  
-  return () => {
-    document.head.removeChild(link)
-  }
-}, [])
 const BlogPost = () => {
-  const { slug } = useParams()
+const { slug } = useParams()
   const [post, setPost] = useState(null)
   const [relatedPosts, setRelatedPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Add RSS feed autodiscovery
   useEffect(() => {
-    loadPost()
-  }, [slug])
-
-  useEffect(() => {
-    if (post) {
-      loadRelatedPosts()
-      incrementPostViews(post.Id)
+    const link = document.createElement('link')
+    link.rel = 'alternate'
+    link.type = 'application/rss+xml'
+    link.title = 'RSS Feed'
+    link.href = '/rss.xml'
+    document.head.appendChild(link)
+    
+    return () => {
+      document.head.removeChild(link)
     }
-  }, [post])
+  }, [])
 
   const loadPost = async () => {
     try {
@@ -61,6 +50,18 @@ const BlogPost = () => {
       console.error('Failed to load related posts:', err)
     }
   }
+
+  useEffect(() => {
+    loadPost()
+  }, [slug])
+
+  useEffect(() => {
+    if (post) {
+      loadRelatedPosts()
+      incrementPostViews(post.Id)
+    }
+  }, [post])
+if (loading) return <Loading />
 
   if (loading) return <Loading />
   if (error) return <Error message={error} />
