@@ -1,5 +1,5 @@
 import { posts } from '@/services/mockData/posts'
-import natural from 'natural'
+import nlp from 'compromise'
 
 // Configuration for semantic linking
 const CONFIG = {
@@ -14,18 +14,21 @@ const CONFIG = {
     cosine: 0.25
   }
 }
-
-// TF-IDF instance for text analysis
-const tfidf = new natural.TfIdf()
+// Initialize cache for processed posts
+let processedPosts = new Map()
 let isInitialized = false
-
-// Initialize TF-IDF with all posts
-const initializeTfIdf = () => {
+// Initialize NLP analysis cache
+const initializeNlpCache = () => {
   if (isInitialized) return
   
   posts.forEach(post => {
     const text = `${post.title} ${post.content} ${post.keywords.join(' ')}`
-    tfidf.addDocument(preprocessText(text))
+    const doc = nlp(preprocessText(text))
+    processedPosts.set(post.Id, {
+      terms: doc.terms().out('array'),
+      nouns: doc.nouns().out('array'),
+      topics: doc.topics().out('array')
+    })
   })
   isInitialized = true
 }
@@ -39,53 +42,58 @@ const preprocessText = (text) => {
     .trim()
 }
 
-// Extract meaningful terms from text
+// Extract meaningful terms using compromise NLP
 const extractTerms = (text) => {
-  const stopWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
-    'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did',
-    'will', 'would', 'could', 'should', 'this', 'that', 'these', 'those', 'can', 'may',
-    'must', 'shall', 'might', 'ought', 'from', 'into', 'during', 'before', 'after',
-    'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further',
-    'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both',
-    'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only',
-    'own', 'same', 'so', 'than', 'too', 'very', 'just', 'now', 'about', 'also', 'they',
-    'them', 'their', 'what', 'who', 'which', 'you', 'your', 'we', 'our', 'us', 'me', 'my',
-    'i', 'he', 'his', 'him', 'she', 'her', 'it', 'its'
-  ])
+  const doc = nlp(preprocessText(text))
   
-  const terms = preprocessText(text)
-    .split(/\s+/)
-    .filter(word => 
-      word.length >= CONFIG.minWordLength && 
-      !stopWords.has(word) &&
-      /^[a-z]+$/.test(word)
-    )
+  // Get meaningful terms
+  const terms = doc.terms()
+    .filter(term => term.text.length >= CONFIG.minWordLength)
+    .out('array')
   
-  // Extract important phrases (2-3 word combinations)
+  // Get noun phrases
+  const nouns = doc.nouns().out('array')
+  
+  // Get important topics
+  const topics = doc.topics().out('array')
+  
+  // Extract 2-3 word phrases
   const phrases = []
-  for (let i = 0; i < terms.length - 1; i++) {
-    if (terms[i].length >= CONFIG.minWordLength && terms[i + 1].length >= CONFIG.minWordLength) {
-      phrases.push(`${terms[i]} ${terms[i + 1]}`)
-    }
-    if (i < terms.length - 2 && terms[i + 2].length >= CONFIG.minWordLength) {
-      phrases.push(`${terms[i]} ${terms[i + 1]} ${terms[i + 2]}`)
-    }
-  }
+  const sentences = doc.sentences().out('array')
   
-  return [...terms, ...phrases]
+  sentences.forEach(sentence => {
+    const sentenceDoc = nlp(sentence)
+    const chunks = sentenceDoc.chunks().out('array')
+    chunks.forEach(chunk => {
+      const words = chunk.split(' ')
+      if (words.length >= 2 && words.length <= 3) {
+        const filteredWords = words.filter(word => word.length >= CONFIG.minWordLength)
+        if (filteredWords.length === words.length) {
+          phrases.push(chunk)
+        }
+      }
+    })
+  })
+  
+  return [...new Set([...terms, ...nouns, ...topics, ...phrases])]
 }
 
 // Calculate semantic similarity between two posts
 export const calculatePostSimilarity = (post1, post2) => {
-  initializeTfIdf()
+  initializeNlpCache()
   
   // Combine title, content, and keywords for analysis
   const text1 = `${post1.title} ${post1.content} ${post1.keywords.join(' ')}`
   const text2 = `${post2.title} ${post2.content} ${post2.keywords.join(' ')}`
   
-  const terms1 = extractTerms(text1)
-  const terms2 = extractTerms(text2)
+  // Use compromise for analysis
+  const doc1 = nlp(preprocessText(text1))
+  const doc2 = nlp(preprocessText(text2))
+  
+  const terms1 = doc1.terms().out('array')
+  const terms2 = doc2.terms().out('array')
+  const nouns1 = doc1.nouns().out('array')
+  const nouns2 = doc2.nouns().out('array')
   
   // Calculate keyword overlap (Jaccard similarity)
   const keywords1 = new Set(post1.keywords.map(k => k.toLowerCase()))
@@ -95,30 +103,18 @@ export const calculatePostSimilarity = (post1, post2) => {
   const keywordSimilarity = keywordIntersection.size / Math.max(keywordUnion.size, 1)
   
   // Calculate term overlap
-  const terms1Set = new Set(terms1)
-  const terms2Set = new Set(terms2)
+  const terms1Set = new Set(terms1.map(t => t.toLowerCase()))
+  const terms2Set = new Set(terms2.map(t => t.toLowerCase()))
   const termIntersection = new Set([...terms1Set].filter(t => terms2Set.has(t)))
   const termUnion = new Set([...terms1Set, ...terms2Set])
   const termSimilarity = termIntersection.size / Math.max(termUnion.size, 1)
   
-  // Calculate cosine similarity using TF-IDF vectors
-  const vector1 = {}
-  const vector2 = {}
-  const allTerms = new Set([...terms1, ...terms2])
-  
-  allTerms.forEach(term => {
-    vector1[term] = terms1.filter(t => t === term).length / terms1.length
-    vector2[term] = terms2.filter(t => t === term).length / terms2.length
-  })
-  
-  const dotProduct = Object.keys(vector1).reduce((sum, term) => {
-    return sum + (vector1[term] || 0) * (vector2[term] || 0)
-  }, 0)
-  
-  const magnitude1 = Math.sqrt(Object.values(vector1).reduce((sum, val) => sum + val * val, 0))
-  const magnitude2 = Math.sqrt(Object.values(vector2).reduce((sum, val) => sum + val * val, 0))
-  
-const cosineSimilarity = magnitude1 && magnitude2 ? dotProduct / (magnitude1 * magnitude2) : 0
+  // Calculate noun overlap
+  const nouns1Set = new Set(nouns1.map(n => n.toLowerCase()))
+  const nouns2Set = new Set(nouns2.map(n => n.toLowerCase()))
+  const nounIntersection = new Set([...nouns1Set].filter(n => nouns2Set.has(n)))
+  const nounUnion = new Set([...nouns1Set, ...nouns2Set])
+  const nounSimilarity = nounIntersection.size / Math.max(nounUnion.size, 1)
   
   // Category similarity bonus
   const categoryBonus = post1.category === post2.category ? 0.1 : 0
@@ -127,18 +123,19 @@ const cosineSimilarity = magnitude1 && magnitude2 ? dotProduct / (magnitude1 * m
   const weights = CONFIG.similarityWeights
   return (keywordSimilarity * weights.keyword) + 
          (termSimilarity * weights.term) + 
-         (cosineSimilarity * weights.cosine) + 
+         (nounSimilarity * weights.cosine) + 
          categoryBonus
 }
 
-// Find anchor text opportunities in content
+// Find anchor text opportunities in content using compromise
 const findAnchorOpportunities = (content, targetPost) => {
   const opportunities = []
-  const contentLower = content.toLowerCase()
+  const contentDoc = nlp(content.toLowerCase())
+  const contentText = content.toLowerCase()
   
   // Look for title phrases (prefer longer phrases)
   const titlePhrase = targetPost.title.toLowerCase()
-  if (contentLower.includes(titlePhrase)) {
+  if (contentText.includes(titlePhrase)) {
     const regex = new RegExp(`\\b${titlePhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
     let match
     while ((match = regex.exec(content)) !== null) {
@@ -152,12 +149,15 @@ const findAnchorOpportunities = (content, targetPost) => {
     }
   }
   
-  // Look for title words
-  const titleWords = targetPost.title.toLowerCase().split(/\s+/)
-    .filter(word => word.length >= CONFIG.minWordLength)
+  // Look for title words using NLP
+  const titleDoc = nlp(targetPost.title)
+  const titleWords = titleDoc.terms()
+    .filter(term => term.text.length >= CONFIG.minWordLength)
+    .out('array')
   
   titleWords.forEach(word => {
-    const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
+    const wordLower = word.toLowerCase()
+    const regex = new RegExp(`\\b${wordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
     let match
     while ((match = regex.exec(content)) !== null) {
       // Skip if already covered by title phrase
@@ -178,7 +178,7 @@ const findAnchorOpportunities = (content, targetPost) => {
     }
   })
   
-  // Look for keywords (exact matches)
+  // Look for keywords
   targetPost.keywords.forEach(keyword => {
     const keywordLower = keyword.toLowerCase()
     const regex = new RegExp(`\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
@@ -194,10 +194,10 @@ const findAnchorOpportunities = (content, targetPost) => {
     }
   })
   
-  // Sort by score, then by length (prefer longer matches), then by position
+  // Sort by score, then by length, then by position
   return opportunities
     .sort((a, b) => b.score - a.score || b.length - a.length || a.position - b.position)
-    .slice(0, 3) // Limit opportunities per post
+    .slice(0, 3)
 }
 
 // Generate semantic links within content
@@ -209,7 +209,7 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
   const usedPositions = []
   const usedTerms = new Set()
   
-  // Sort related posts by similarity score (if available)
+  // Sort related posts by similarity score
   const sortedPosts = relatedPosts.sort((a, b) => (b.similarityScore || 0) - (a.similarityScore || 0))
   
   sortedPosts.forEach(relatedPost => {
@@ -221,7 +221,7 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
       if (linkCount >= CONFIG.maxLinksPerPost) return
       if (usedTerms.has(opportunity.term.toLowerCase())) return
       
-      // Check for position conflicts with existing links
+      // Check for position conflicts
       const conflictsWithExisting = usedPositions.some(pos => 
         Math.abs(pos - opportunity.position) < CONFIG.contextWindowSize
       )
@@ -230,7 +230,7 @@ export const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
       const escapedTerm = opportunity.term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       const regex = new RegExp(`\\b${escapedTerm}\\b`, 'i')
       
-      // Check if this term is not already linked and doesn't contain HTML
+      // Check if term is not already linked
       const termMatch = linkedContent.match(regex)
       if (termMatch && !linkedContent.substring(termMatch.index - 10, termMatch.index + opportunity.term.length + 10).includes('<a ')) {
         const replacement = `<a href="/post/${relatedPost.slug}" class="semantic-link inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200 underline decoration-1 underline-offset-2 transition-colors duration-200" title="Related article: ${relatedPost.title}" data-semantic-link="true">${opportunity.term}</a>`
@@ -257,7 +257,7 @@ export const analyzeContentForLinks = async (content, currentPostId) => {
   const currentPost = posts.find(p => p.Id === currentPostId)
   if (!currentPost) return { content, suggestions: [] }
   
-  // Calculate similarities
+  // Calculate similarities using compromise
   const scoredPosts = publishedPosts.map(post => ({
     ...post,
     similarityScore: calculatePostSimilarity(currentPost, post)

@@ -1,7 +1,6 @@
 import { posts } from '@/services/mockData/posts'
 import { authors } from '@/services/mockData/authors'
 import { updateSitemap } from '@/services/api/sitemapService'
-import natural from 'natural'
 
 // Helper function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -13,8 +12,8 @@ const LINKING_CONFIG = {
   maxAnchorLength: 50
 }
 
-// TF-IDF and similarity calculations
-const tfidf = new natural.TfIdf()
+// Similarity calculations cache
+let similarityCache = new Map()
 
 // Helper function to get post with author and semantic links
 const getPostWithAuthor = (post) => {
@@ -22,7 +21,7 @@ const getPostWithAuthor = (post) => {
   return { ...post, author }
 }
 
-// Extract meaningful terms from content
+// Simple term extraction for compatibility
 const extractTerms = (content) => {
   const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'])
   
@@ -33,16 +32,13 @@ const extractTerms = (content) => {
     .filter(word => word.length > 3 && !stopWords.has(word))
 }
 
-// Calculate semantic similarity between posts
+// Simple similarity calculation without external NLP
 const calculateSimilarity = (post1, post2) => {
-  // Initialize TF-IDF if needed
-  if (tfidf.documents.length === 0) {
-    posts.forEach(p => {
-      const text = `${p.title} ${p.content} ${p.keywords.join(' ')}`
-      tfidf.addDocument(extractTerms(text))
-    })
+  const cacheKey = `${post1.Id}-${post2.Id}`
+  if (similarityCache.has(cacheKey)) {
+    return similarityCache.get(cacheKey)
   }
-
+  
   const text1 = `${post1.title} ${post1.content} ${post1.keywords.join(' ')}`
   const text2 = `${post2.title} ${post2.content} ${post2.keywords.join(' ')}`
   
@@ -50,8 +46,8 @@ const calculateSimilarity = (post1, post2) => {
   const terms2 = extractTerms(text2)
   
   // Calculate Jaccard similarity for keywords
-  const keywords1 = new Set(post1.keywords)
-  const keywords2 = new Set(post2.keywords)
+  const keywords1 = new Set(post1.keywords.map(k => k.toLowerCase()))
+  const keywords2 = new Set(post2.keywords.map(k => k.toLowerCase()))
   const intersection = new Set([...keywords1].filter(k => keywords2.has(k)))
   const union = new Set([...keywords1, ...keywords2])
   const keywordSimilarity = intersection.size / Math.max(union.size, 1)
@@ -63,47 +59,55 @@ const calculateSimilarity = (post1, post2) => {
   const termUnion = new Set([...terms1Set, ...terms2Set])
   const termSimilarity = termIntersection.size / Math.max(termUnion.size, 1)
   
+  // Category bonus
+  const categoryBonus = post1.category === post2.category ? 0.1 : 0
+  
   // Weighted combination
-  return (keywordSimilarity * 0.6) + (termSimilarity * 0.4)
+  const similarity = (keywordSimilarity * 0.6) + (termSimilarity * 0.4) + categoryBonus
+  similarityCache.set(cacheKey, similarity)
+  
+  return similarity
 }
 
-// Generate semantic links within content
+// Simple semantic link generation
 const generateSemanticLinks = (content, currentPostId, relatedPosts) => {
   let linkedContent = content
   let linkCount = 0
+  const usedTerms = new Set()
   
   relatedPosts.forEach(relatedPost => {
     if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
     
-    // Find good anchor text opportunities
+    // Look for title words
     const titleWords = relatedPost.title.toLowerCase().split(/\s+/)
-    const keywords = relatedPost.keywords.map(k => k.toLowerCase())
+      .filter(word => word.length >= 4)
     
-    // Look for title mentions
     titleWords.forEach(word => {
       if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
-      if (word.length < 4) return
+      if (usedTerms.has(word)) return
       
-      const regex = new RegExp(`\\b${word}\\b`, 'gi')
-      const matches = linkedContent.match(regex)
+      const regex = new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
       
-      if (matches && matches.length > 0) {
+      if (linkedContent.match(regex) && !linkedContent.includes(`>${word}<`)) {
         const link = `<a href="/post/${relatedPost.slug}" class="semantic-link text-primary-600 dark:text-primary-400 hover:underline">${word}</a>`
         linkedContent = linkedContent.replace(regex, link)
+        usedTerms.add(word)
         linkCount++
       }
     })
     
-    // Look for keyword mentions
-    keywords.forEach(keyword => {
+    // Look for keywords
+    relatedPost.keywords.forEach(keyword => {
       if (linkCount >= LINKING_CONFIG.maxLinksPerPost) return
+      if (usedTerms.has(keyword.toLowerCase())) return
       
-      const regex = new RegExp(`\\b${keyword}\\b`, 'gi')
-      const matches = linkedContent.match(regex)
+      const keywordLower = keyword.toLowerCase()
+      const regex = new RegExp(`\\b${keywordLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi')
       
-      if (matches && matches.length > 0 && !linkedContent.includes(`>${keyword}<`)) {
+      if (linkedContent.match(regex) && !linkedContent.includes(`>${keyword}<`)) {
         const link = `<a href="/post/${relatedPost.slug}" class="semantic-link text-primary-600 dark:text-primary-400 hover:underline">${keyword}</a>`
         linkedContent = linkedContent.replace(regex, link)
+        usedTerms.add(keywordLower)
         linkCount++
       }
     })
@@ -154,19 +158,24 @@ export const getPostBySlug = async (slug) => {
   
   const postWithAuthor = getPostWithAuthor(post)
   
-  // Generate semantic links if post is published
+// Generate semantic links if post is published
   if (post.status === 'published') {
-    const relatedPosts = await getRelatedPosts(post.Id, 5)
-    
-    // Import semantic linking service dynamically to avoid circular dependency
-    const { generateSemanticLinks } = await import('@/services/api/semanticLinkingService')
-    postWithAuthor.contentWithLinks = generateSemanticLinks(post.content, post.Id, relatedPosts)
-    
-    // Add semantic metadata
-    postWithAuthor.semanticStats = {
-      linksGenerated: (postWithAuthor.contentWithLinks.match(/data-semantic-link="true"/g) || []).length,
-      relatedPostsAnalyzed: relatedPosts.length,
-      averageSimilarity: relatedPosts.reduce((sum, p) => sum + (p.similarityScore || 0), 0) / Math.max(relatedPosts.length, 1)
+    try {
+      const relatedPosts = await getRelatedPosts(post.Id, 5)
+      
+      // Use local semantic linking to avoid circular dependency
+      postWithAuthor.contentWithLinks = generateSemanticLinks(post.content, post.Id, relatedPosts)
+      
+      // Add semantic metadata
+      postWithAuthor.semanticStats = {
+        linksGenerated: (postWithAuthor.contentWithLinks.match(/semantic-link/g) || []).length,
+        relatedPostsAnalyzed: relatedPosts.length,
+        averageSimilarity: relatedPosts.reduce((sum, p) => sum + (p.similarityScore || 0), 0) / Math.max(relatedPosts.length, 1)
+      }
+    } catch (error) {
+      console.warn('Semantic linking failed:', error)
+      postWithAuthor.contentWithLinks = post.content
+      postWithAuthor.semanticStats = { linksGenerated: 0, relatedPostsAnalyzed: 0, averageSimilarity: 0 }
     }
   }
   
