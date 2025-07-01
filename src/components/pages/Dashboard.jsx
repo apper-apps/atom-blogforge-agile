@@ -161,8 +161,8 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+{/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <motion.div
           whileHover={{ scale: 1.02 }}
           className="card p-6 cursor-pointer"
@@ -178,6 +178,26 @@ const Dashboard = () => {
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Start writing your next blog post
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          whileHover={{ scale: 1.02 }}
+          className="card p-6 cursor-pointer"
+          onClick={() => window.location.href = '/admin/media'}
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl flex items-center justify-center">
+              <ApperIcon name="Image" size={24} className="text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                Media Library
+              </h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Upload and manage media files
               </p>
             </div>
           </div>

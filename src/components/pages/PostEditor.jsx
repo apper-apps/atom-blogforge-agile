@@ -25,11 +25,11 @@ const PostEditor = () => {
     status: 'draft',
     authorId: 1
   })
-  
-  const [loading, setLoading] = useState(false)
+const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [preview, setPreview] = useState(false)
   const [keywordInput, setKeywordInput] = useState('')
+  const [showMediaBrowser, setShowMediaBrowser] = useState(false)
 
   useEffect(() => {
     if (isEdit) {
@@ -197,14 +197,25 @@ const PostEditor = () => {
                   className="text-2xl font-bold"
                 />
               </div>
-
-              {/* Featured Image */}
+{/* Featured Image */}
               <div className="card p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Featured Image
+                  </label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon="Image"
+                    onClick={() => setShowMediaBrowser(true)}
+                  >
+                    Browse Media
+                  </Button>
+                </div>
                 <Input
-                  label="Featured Image URL"
                   value={post.featuredImage}
                   onChange={(e) => handleInputChange('featuredImage', e.target.value)}
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="https://example.com/image.jpg or select from media library"
                 />
                 {post.featuredImage && (
                   <div className="mt-4">
@@ -369,9 +380,92 @@ const PostEditor = () => {
                 </Badge>
               ))}
             </div>
-          </div>
+</div>
         </div>
       </div>
+
+      {/* Media Browser Modal */}
+      {showMediaBrowser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Select Media
+              </h3>
+              <button
+                onClick={() => setShowMediaBrowser(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <ApperIcon name="X" size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <MediaBrowser
+                onSelect={(media) => {
+                  handleInputChange('featuredImage', media.url)
+                  setShowMediaBrowser(false)
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Simple media browser component for the modal
+const MediaBrowser = ({ onSelect }) => {
+  const [media, setMedia] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Simulate loading media
+    const loadMedia = async () => {
+      try {
+        // This would use the actual media service
+        const mockMedia = [
+          { Id: 1, name: 'hero-image.jpg', url: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=800&h=600&fit=crop', type: 'image' },
+          { Id: 2, name: 'blog-cover.jpg', url: 'https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=800&h=600&fit=crop', type: 'image' },
+          { Id: 3, name: 'tech-background.jpg', url: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?w=800&h=600&fit=crop', type: 'image' }
+        ]
+        await new Promise(resolve => setTimeout(resolve, 500))
+        setMedia(mockMedia)
+      } catch (err) {
+        console.error('Failed to load media')
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadMedia()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="aspect-square bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {media.map((item) => (
+        <div
+          key={item.Id}
+          onClick={() => onSelect(item)}
+          className="aspect-square bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all"
+        >
+          <img
+            src={item.url}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      ))}
     </div>
   )
 }
