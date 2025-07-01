@@ -13,6 +13,50 @@ import MediaLibrary from '@/components/pages/MediaLibrary'
 import PublicBlog from '@/components/pages/PublicBlog'
 import BlogPost from '@/components/pages/BlogPost'
 import AuthorProfile from '@/components/pages/AuthorProfile'
+import { generateRSSFeed } from '@/services/api/rssService'
+
+// RSS Feed Handler Component
+const RSSFeedHandler = () => {
+  useEffect(() => {
+    const serveRSSFeed = async () => {
+      try {
+        const rssXml = await generateRSSFeed()
+        
+        // Create a blob with the RSS XML content
+        const blob = new Blob([rssXml], { type: 'application/rss+xml; charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        
+        // Replace current page with RSS feed
+        window.location.replace(url)
+      } catch (error) {
+        console.error('Failed to generate RSS feed:', error)
+        // Fallback: serve basic RSS structure
+        const fallbackRSS = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>TechBlog - Latest Posts</title>
+    <description>RSS feed temporarily unavailable</description>
+    <link>${window.location.origin}</link>
+  </channel>
+</rss>`
+        const blob = new Blob([fallbackRSS], { type: 'application/rss+xml; charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        window.location.replace(url)
+      }
+    }
+    
+    serveRSSFeed()
+  }, [])
+  
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-600 dark:text-gray-400">Generating RSS feed...</p>
+      </div>
+    </div>
+  )
+}
 
 function App() {
   const [darkMode, setDarkMode] = useState(false)
@@ -52,10 +96,11 @@ function App() {
         {/* Public Blog Routes */}
         <Route path="/*" element={
           <PublicLayout darkMode={darkMode} toggleDarkMode={toggleDarkMode}>
-            <Routes>
+<Routes>
               <Route index element={<PublicBlog />} />
               <Route path="post/:slug" element={<BlogPost />} />
               <Route path="author/:authorId" element={<AuthorProfile />} />
+              <Route path="rss.xml" element={<RSSFeedHandler />} />
             </Routes>
           </PublicLayout>
         } />

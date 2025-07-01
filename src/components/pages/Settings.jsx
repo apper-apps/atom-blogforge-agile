@@ -5,6 +5,7 @@ import ApperIcon from "@/components/ApperIcon";
 import Input from "@/components/atoms/Input";
 import Button from "@/components/atoms/Button";
 import { getBlogSettings, updateBlogSettings } from "@/services/api/settingsService";
+import { getRSSStats, validateRSSFeed, generateRSSFeed } from "@/services/api/rssService";
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general')
@@ -38,6 +39,11 @@ seo: {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
+  // RSS management state
+  const [rssStats, setRssStats] = useState(null)
+  const [rssValidation, setRssValidation] = useState(null)
+  const [rssLoading, setRssLoading] = useState(false)
+  
   // DNS management state
   const [domains, setDomains] = useState([])
   const [showAddDomain, setShowAddDomain] = useState(false)
@@ -54,7 +60,10 @@ seo: {
   useEffect(() => {
     loadSettings()
     loadDomains()
-  }, [])
+    if (activeTab === 'rss') {
+      loadRSSData()
+    }
+  }, [activeTab])
 
   const loadSettings = async () => {
     try {
@@ -90,6 +99,35 @@ seo: {
       ])
     } catch (err) {
       toast.error('Failed to load domains')
+    }
+}
+
+  const loadRSSData = async () => {
+    try {
+      setRssLoading(true)
+      const [stats, validation] = await Promise.all([
+        getRSSStats(),
+        validateRSSFeed()
+      ])
+      setRssStats(stats)
+      setRssValidation(validation)
+    } catch (err) {
+      toast.error('Failed to load RSS data')
+    } finally {
+      setRssLoading(false)
+    }
+  }
+
+  const handleRegenerateRSS = async () => {
+    try {
+      setRssLoading(true)
+      await generateRSSFeed()
+      await loadRSSData()
+      toast.success('RSS feed regenerated successfully')
+    } catch (err) {
+      toast.error('Failed to regenerate RSS feed')
+    } finally {
+      setRssLoading(false)
     }
   }
 
@@ -223,6 +261,7 @@ const tabs = [
     { id: 'social', label: 'Social Media', icon: 'Share2' },
     { id: 'seo', label: 'SEO', icon: 'Search' },
     { id: 'theme', label: 'Theme', icon: 'Palette' },
+    { id: 'rss', label: 'RSS Feed', icon: 'Rss' },
     { id: 'dns', label: 'DNS', icon: 'Globe' }
   ]
 
@@ -587,9 +626,174 @@ onChange={(e) => handleInputChange('seo.facebookPixel', e.target.value)}
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
+</div>
+          </div>
+        )}
+
+        {/* RSS Feed Settings */}
+        {activeTab === 'rss' && (
+          <div className="space-y-6">
+            {/* RSS Feed Status */}
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+                    RSS Feed Status
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Monitor and manage your RSS feed
+                  </p>
+                </div>
+                <Button
+                  onClick={handleRegenerateRSS}
+                  loading={rssLoading}
+                  disabled={rssLoading}
+                >
+                  <ApperIcon name="RefreshCw" size={16} />
+                  <span className="ml-2">Regenerate Feed</span>
+                </Button>
+              </div>
+
+              {rssLoading ? (
+                <div className="animate-pulse space-y-4">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                  <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* RSS Stats */}
+                  {rssStats && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="FileText" size={16} className="text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Posts</span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {rssStats.totalPosts}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="Rss" size={16} className="text-green-600 dark:text-green-400" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Items in Feed</span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {rssStats.itemsInFeed}
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="HardDrive" size={16} className="text-purple-600 dark:text-purple-400" />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Feed Size</span>
+                        </div>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
+                          {(rssStats.feedSize / 1024).toFixed(1)}KB
+                        </p>
+                      </div>
+                      
+                      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon 
+                            name={rssStats.feedValid ? "CheckCircle" : "AlertCircle"} 
+                            size={16} 
+                            className={rssStats.feedValid ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"} 
+                          />
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status</span>
+                        </div>
+                        <p className={`text-2xl font-bold mt-1 ${
+                          rssStats.feedValid ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                        }`}>
+                          {rssStats.feedValid ? "Valid" : "Invalid"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* RSS Validation */}
+                  {rssValidation && (
+                    <div className="space-y-4">
+                      <h3 className="font-medium text-gray-900 dark:text-gray-100">Feed Validation</h3>
+                      
+                      {rssValidation.errors.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                          <div className="flex items-start space-x-3">
+                            <ApperIcon name="AlertCircle" size={16} className="text-red-600 dark:text-red-400 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-red-800 dark:text-red-200">Errors</h4>
+                              <ul className="text-sm text-red-600 dark:text-red-300 mt-1 space-y-1">
+                                {rssValidation.errors.map((error, index) => (
+                                  <li key={index}>• {error}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {rssValidation.warnings.length > 0 && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                          <div className="flex items-start space-x-3">
+                            <ApperIcon name="AlertTriangle" size={16} className="text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-yellow-800 dark:text-yellow-200">Warnings</h4>
+                              <ul className="text-sm text-yellow-600 dark:text-yellow-300 mt-1 space-y-1">
+                                {rssValidation.warnings.map((warning, index) => (
+                                  <li key={index}>• {warning}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {rssValidation.isValid && rssValidation.errors.length === 0 && rssValidation.warnings.length === 0 && (
+                        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                          <div className="flex items-start space-x-3">
+                            <ApperIcon name="CheckCircle" size={16} className="text-green-600 dark:text-green-400 mt-0.5" />
+                            <div>
+                              <h4 className="font-medium text-green-800 dark:text-green-200">Feed is Valid</h4>
+                              <p className="text-sm text-green-600 dark:text-green-300 mt-1">
+                                Your RSS feed passes all validation checks
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* RSS Feed URL */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <ApperIcon name="Link" size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-blue-800 dark:text-blue-200">RSS Feed URL</h4>
+                        <p className="text-sm text-blue-600 dark:text-blue-300 mt-1 font-mono break-all">
+                          {window.location.origin}/rss.xml
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                          Share this URL with RSS readers and subscribers
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${window.location.origin}/rss.xml`)
+                          toast.success('RSS URL copied to clipboard')
+                        }}
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                      >
+                        <ApperIcon name="Copy" size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-)}
+        )}
 
         {/* DNS Management */}
         {activeTab === 'dns' && (
