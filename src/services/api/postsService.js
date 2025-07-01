@@ -1,7 +1,7 @@
 import { posts } from '@/services/mockData/posts'
 import { authors } from '@/services/mockData/authors'
 import { updateSitemap } from '@/services/api/sitemapService'
-
+import { generateRSSFeed } from '@/services/api/rssService'
 // Helper function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
@@ -226,17 +226,17 @@ export const createPost = async (postData) => {
 updatedAt: new Date().toISOString()
   }
   posts.push(newPost)
+posts.push(newPost)
   
-  // Update sitemap if post is published
+  // Update sitemap and RSS feed if post is published
   if (newPost.status === 'published') {
     try {
       await updateSitemap()
+      await generateRSSFeed()
     } catch (error) {
-      console.warn('Failed to update sitemap:', error)
+      console.warn('Failed to update sitemap/RSS:', error)
     }
   }
-  
-  return getPostWithAuthor(newPost)
 }
 export const updatePost = async (id, postData) => {
   await delay(400)
@@ -251,17 +251,17 @@ Id: id,
     updatedAt: new Date().toISOString()
   }
   
-  // Update sitemap if publish status changed
+// Update sitemap and RSS feed if publish status changed
   const oldStatus = posts[index].status
   const newStatus = posts[index].status
   if (oldStatus !== newStatus && (newStatus === 'published' || oldStatus === 'published')) {
     try {
       await updateSitemap()
+      await generateRSSFeed()
     } catch (error) {
-      console.warn('Failed to update sitemap:', error)
+      console.warn('Failed to update sitemap/RSS:', error)
     }
   }
-  
   return getPostWithAuthor(posts[index])
 }
 export const deletePost = async (id) => {
@@ -271,17 +271,17 @@ if (index === -1) throw new Error('Post not found')
   
   const deletedPost = posts[index]
   posts.splice(index, 1)
+posts.splice(index, 1)
   
-  // Update sitemap if published post was deleted
+  // Update sitemap and RSS feed if published post was deleted
   if (deletedPost.status === 'published') {
     try {
       await updateSitemap()
+      await generateRSSFeed()
     } catch (error) {
-      console.warn('Failed to update sitemap:', error)
+      console.warn('Failed to update sitemap/RSS:', error)
     }
   }
-  
-  return true
 }
 export const schedulePost = async (id, scheduledDate) => {
   await delay(300)
@@ -295,12 +295,12 @@ export const schedulePost = async (id, scheduledDate) => {
 scheduledPublishAt: scheduledDate,
     updatedAt: new Date().toISOString()
   }
-  
-  // Update sitemap when post is scheduled (removing from published if it was)
+// Update sitemap and RSS feed when post is scheduled (removing from published if it was)
   try {
     await updateSitemap()
+    await generateRSSFeed()
   } catch (error) {
-    console.warn('Failed to update sitemap:', error)
+    console.warn('Failed to update sitemap/RSS:', error)
   }
   
   return getPostWithAuthor(posts[index])
@@ -315,12 +315,12 @@ export const updateScheduledPost = async (id, newDate) => {
 scheduledPublishAt: newDate,
     updatedAt: new Date().toISOString()
   }
-  
-  // Update sitemap for scheduled post changes
+// Update sitemap and RSS feed for scheduled post changes
   try {
     await updateSitemap()
+    await generateRSSFeed()
   } catch (error) {
-    console.warn('Failed to update sitemap:', error)
+    console.warn('Failed to update sitemap/RSS:', error)
   }
   
   return getPostWithAuthor(posts[index])

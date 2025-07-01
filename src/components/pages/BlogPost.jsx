@@ -9,6 +9,19 @@ import ShareButtons from '@/components/molecules/ShareButtons'
 import { getPostBySlug, incrementPostViews } from '@/services/api/postsService'
 import { getRelatedPosts } from '@/services/api/postsService'
 
+// Add RSS feed autodiscovery
+useEffect(() => {
+  const link = document.createElement('link')
+  link.rel = 'alternate'
+  link.type = 'application/rss+xml'
+  link.title = 'RSS Feed'
+  link.href = '/rss.xml'
+  document.head.appendChild(link)
+  
+  return () => {
+    document.head.removeChild(link)
+  }
+}, [])
 const BlogPost = () => {
   const { slug } = useParams()
   const [post, setPost] = useState(null)

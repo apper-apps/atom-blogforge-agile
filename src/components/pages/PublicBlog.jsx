@@ -115,7 +115,19 @@ const PublicBlog = () => {
       )}
 
       {/* Main Content */}
+{/* Main Content */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* RSS Feed Link */}
+        <div className="mb-8 text-center">
+          <a
+            href="/rss.xml"
+            className="inline-flex items-center space-x-2 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+          >
+            <ApperIcon name="Rss" size={16} />
+            <span>Subscribe to RSS Feed</span>
+          </a>
+        </div>
+
         {/* Search Bar */}
         <div className="mb-12 max-w-md mx-auto">
           <SearchBar
@@ -124,7 +136,6 @@ const PublicBlog = () => {
             className="w-full"
           />
         </div>
-
         {/* Posts Grid */}
         {filteredPosts.length === 0 ? (
           <Empty

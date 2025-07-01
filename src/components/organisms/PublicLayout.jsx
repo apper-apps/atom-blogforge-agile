@@ -145,7 +145,7 @@ const PublicLayout = ({ children, darkMode, toggleDarkMode }) => {
               </ul>
             </div>
             
-            <div>
+<div>
               <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-4">Connect</h4>
               <div className="flex space-x-4">
                 <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
@@ -156,6 +156,9 @@ const PublicLayout = ({ children, darkMode, toggleDarkMode }) => {
                 </a>
                 <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400">
                   <ApperIcon name="Linkedin" size={20} />
+                </a>
+                <a href="/rss.xml" className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400" title="RSS Feed">
+                  <ApperIcon name="Rss" size={20} />
                 </a>
               </div>
             </div>
