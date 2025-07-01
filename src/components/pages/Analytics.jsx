@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import Chart from 'react-apexcharts'
-import ApperIcon from '@/components/ApperIcon'
-import Loading from '@/components/ui/Loading'
-import Error from '@/components/ui/Error'
-import { getAnalytics, getPostAnalytics } from '@/services/api/analyticsService'
+import React, { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import Chart from "react-apexcharts";
+import ApperIcon from "@/components/ApperIcon";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import { getAnalytics, getPostAnalytics } from "@/services/api/analyticsService";
+import { analytics as mockAnalytics } from "@/services/mockData/analytics";
 
 const Analytics = () => {
   const [analytics, setAnalytics] = useState(null)
@@ -179,7 +180,7 @@ const Analytics = () => {
         ))}
       </div>
 
-      {/* Charts */}
+{/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Views Chart */}
         <div className="card p-6">
@@ -227,50 +228,247 @@ const Analytics = () => {
         </div>
       </div>
 
-      {/* Additional Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Traffic Sources */}
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Traffic Sources Chart */}
         <div className="card p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Traffic Sources
           </h2>
-          <div className="space-y-4">
-            {analytics?.trafficSources?.map((source) => (
-              <div key={source.name} className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: source.color }}></div>
-                  <span className="text-gray-900 dark:text-gray-100">{source.name}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600 dark:text-gray-400">{source.percentage}%</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {source.visits.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <Chart
+            options={{
+              chart: {
+                type: 'donut',
+                height: 280
+              },
+              colors: analytics?.trafficSources?.map(source => source.color) || [],
+              labels: analytics?.trafficSources?.map(source => source.name) || [],
+              legend: {
+                position: 'bottom',
+                fontSize: '14px',
+                labels: {
+                  colors: '#6b7280'
+                }
+              },
+              plotOptions: {
+                pie: {
+                  donut: {
+                    size: '65%',
+                    labels: {
+                      show: true,
+                      name: {
+                        show: true,
+                        fontSize: '16px',
+                        color: '#374151'
+                      },
+                      value: {
+                        show: true,
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        color: '#111827',
+                        formatter: (val) => val.toLocaleString()
+                      },
+                      total: {
+                        show: true,
+                        label: 'Total Visits',
+                        fontSize: '14px',
+                        color: '#6b7280',
+                        formatter: () => {
+                          const total = analytics?.trafficSources?.reduce((sum, source) => sum + source.visits, 0) || 0
+                          return total.toLocaleString()
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              tooltip: {
+                y: {
+                  formatter: (val) => val.toLocaleString() + ' visits'
+                }
+              }
+            }}
+            series={analytics?.trafficSources?.map(source => source.visits) || []}
+            type="donut"
+            height={280}
+          />
         </div>
 
-        {/* Devices */}
+        {/* Blog Engagement Metrics */}
+        <div className="card p-6 xl:col-span-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Blog Engagement Metrics
+          </h2>
+          <Chart
+            options={{
+              chart: {
+                type: 'bar',
+                height: 280,
+                toolbar: { show: false }
+              },
+              colors: ['#f59e0b', '#10b981'],
+              plotOptions: {
+                bar: {
+                  horizontal: false,
+                  columnWidth: '55%',
+                  endingShape: 'rounded'
+                }
+              },
+              dataLabels: {
+                enabled: false
+              },
+stroke: {
+                show: true,
+                width: 2,
+                colors: ['transparent']
+              },
+              xaxis: {
+                categories: (analytics?.blogEngagement || []).map(blog => blog.title.length > 20 ? blog.title.substring(0, 20) + '...' : blog.title),
+                labels: {
+                  style: { colors: '#6b7280' },
+                  rotate: -45
+                }
+              },
+              yaxis: [
+                {
+                  title: {
+                    text: 'Bounce Rate (%)',
+                    style: { color: '#6b7280' }
+                  },
+                  labels: {
+                    style: { colors: '#6b7280' },
+                    formatter: (val) => val + '%'
+                  }
+                },
+                {
+                  opposite: true,
+                  title: {
+                    text: 'Avg Session (min)',
+                    style: { color: '#6b7280' }
+                  },
+                  labels: {
+                    style: { colors: '#6b7280' },
+                    formatter: (val) => val + 'm'
+                  }
+                }
+              ],
+              fill: {
+                opacity: 1
+              },
+              tooltip: {
+                y: {
+                  formatter: (val, { seriesIndex }) => {
+                    return seriesIndex === 0 ? val + '%' : val + ' minutes'
+                  }
+                }
+              },
+              legend: {
+                position: 'top',
+                horizontalAlign: 'right',
+                labels: {
+                  colors: '#6b7280'
+                }
+              },
+              grid: {
+                borderColor: '#f3f4f6',
+                strokeDashArray: 5
+              }
+}}
+            series={[
+              {
+                name: 'Bounce Rate',
+                data: (analytics?.blogEngagement || []).map(blog => blog.bounceRate)
+              },
+              {
+                name: 'Avg Session Time',
+                data: (analytics?.blogEngagement || []).map(blog => blog.avgSessionTime)
+              }
+            ]}
+            type="bar"
+            height={280}
+          />
+        </div>
+      </div>
+
+      {/* Device Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Device Breakdown Chart */}
         <div className="card p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
             Device Breakdown
           </h2>
+          <Chart
+            options={{
+              chart: {
+                type: 'pie',
+                height: 300
+              },
+              colors: ['#2563eb', '#7c3aed', '#f59e0b'],
+              labels: analytics?.devices?.map(device => device.name) || [],
+              legend: {
+                position: 'bottom',
+                fontSize: '14px',
+                labels: {
+                  colors: '#6b7280'
+                }
+              },
+              tooltip: {
+                y: {
+                  formatter: (val) => val.toLocaleString() + ' visits'
+                }
+              },
+              plotOptions: {
+                pie: {
+                  expandOnClick: true,
+                  donut: {
+                    labels: {
+                      show: true,
+                      name: {
+                        show: true,
+                        fontSize: '16px'
+                      },
+                      value: {
+                        show: true,
+                        fontSize: '18px',
+                        fontWeight: 'bold',
+                        formatter: (val) => val.toLocaleString()
+                      }
+                    }
+                  }
+                }
+              }
+            }}
+            series={analytics?.devices?.map(device => device.visits) || []}
+            type="pie"
+            height={300}
+          />
+        </div>
+
+        {/* Device Stats List */}
+        <div className="card p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            Device Statistics
+          </h2>
           <div className="space-y-4">
-            {analytics?.devices?.map((device) => (
-              <div key={device.name} className="flex items-center justify-between">
+            {analytics?.devices?.map((device, index) => (
+              <motion.div
+                key={device.name}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+              >
                 <div className="flex items-center space-x-3">
-                  <ApperIcon name={device.icon} size={20} className="text-gray-600 dark:text-gray-400" />
-                  <span className="text-gray-900 dark:text-gray-100">{device.name}</span>
+                  <ApperIcon name={device.icon} size={24} className="text-gray-600 dark:text-gray-400" />
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{device.name}</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600 dark:text-gray-400">{device.percentage}%</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-gray-100">
                     {device.visits.toLocaleString()}
-                  </span>
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{device.percentage}% of traffic</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>

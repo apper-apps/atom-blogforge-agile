@@ -68,3 +68,21 @@ export const getDeviceStats = async () => {
   await delay(300)
   return analytics.devices
 }
+
+export const getBlogEngagementMetrics = async () => {
+  await delay(350)
+  
+  // Generate engagement metrics for each published post
+  const publishedPosts = posts.filter(post => post.status === 'published')
+  
+  return publishedPosts.slice(0, 8).map(post => ({
+    Id: post.Id,
+    title: post.title,
+    bounceRate: Math.floor(Math.random() * 40) + 25, // 25-65%
+    avgSessionTime: Math.floor(Math.random() * 7) + 1, // 1-8 minutes
+    pageViews: post.views,
+    uniqueVisitors: Math.floor(post.views * 0.7),
+    conversionRate: Math.floor(Math.random() * 15) + 5, // 5-20%
+    socialShares: Math.floor(Math.random() * 100) + 10
+  }))
+}
