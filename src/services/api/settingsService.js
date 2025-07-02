@@ -1,4 +1,7 @@
-import { toast } from 'react-toastify'
+import { toast } from "react-toastify";
+import React from "react";
+import Error from "@/components/ui/Error";
+import { settings } from "@/services/mockData/settings";
 
 // Helper function to delay execution
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -31,7 +34,7 @@ export const getBlogSettings = async () => {
         { field: { Name: "domains" } },
         { field: { Name: "updated_at" } }
       ],
-      pagingInfo: { limit: 1, offset: 0 }
+pagingInfo: { limit: 1, offset: 0 }
     }
     
     const response = await apperClient.fetchRecords("setting", params)
@@ -42,11 +45,22 @@ export const getBlogSettings = async () => {
       return getDefaultSettings()
     }
     
-    if (response.data && response.data.length > 0) {
-      const settings = response.data[0]
-      
-      // Parse JSON fields
-      try {
+    // Validate response structure and data existence
+    if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+      console.warn('No settings found in database, using defaults')
+      return getDefaultSettings()
+    }
+    
+    const settings = response.data[0]
+    
+    // Validate settings object exists
+    if (!settings || typeof settings !== 'object') {
+      console.warn('Invalid settings object received, using defaults')
+      return getDefaultSettings()
+    }
+    
+    // Parse JSON fields
+    try {
         if (typeof settings.social_links === 'string') {
           settings.social_links = JSON.parse(settings.social_links)
         }
@@ -61,18 +75,15 @@ export const getBlogSettings = async () => {
         }
       } catch (error) {
         console.warn('Error parsing settings JSON fields:', error)
+console.warn('Error parsing settings JSON fields:', error)
       }
       
       return settings
-    }
-    
-    return getDefaultSettings()
   } catch (error) {
     console.error("Error fetching blog settings:", error)
     toast.error("Failed to fetch blog settings")
     return getDefaultSettings()
   }
-}
 
 const getDefaultSettings = () => ({
   blog_title: 'TechBlog',
