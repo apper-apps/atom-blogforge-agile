@@ -18,9 +18,9 @@ const CONFIG = {
 let processedPosts = new Map()
 let isInitialized = false
 // Initialize NLP analysis cache
-const initializeNlpCache = () => {
+const initializeNlpCache = async () => {
   if (isInitialized) return
-const posts = await getAllPosts()
+  const posts = await getAllPosts()
   posts.forEach(post => {
     const text = `${post.title} ${post.content} ${post.keywords.join(' ')}`
     const doc = nlp(preprocessText(text))
@@ -79,8 +79,8 @@ const extractTerms = (text) => {
 }
 
 // Calculate semantic similarity between two posts
-export const calculatePostSimilarity = (post1, post2) => {
-  initializeNlpCache()
+export const calculatePostSimilarity = async (post1, post2) => {
+  await initializeNlpCache()
   
   // Combine title, content, and keywords for analysis
   const text1 = `${post1.title} ${post1.content} ${post1.keywords.join(' ')}`
@@ -259,7 +259,7 @@ const currentPost = allPosts.find(p => p.Id === currentPostId)
   if (!currentPost) return { content, suggestions: [] }
   
   // Calculate similarities using compromise
-  const scoredPosts = publishedPosts.map(post => ({
+const scoredPosts = publishedPosts.map(async post => ({
     ...post,
     similarityScore: calculatePostSimilarity(currentPost, post)
   }))
@@ -298,7 +298,7 @@ const publishedPosts = allPosts.filter(p =>
   const similarities = publishedPosts.map(p => ({
     postId: p.Id,
     title: p.title,
-    similarity: calculatePostSimilarity(post, p)
+similarity: await calculatePostSimilarity(post, p)
   }))
   
   const strongConnections = similarities.filter(s => s.similarity >= CONFIG.similarityThreshold)
